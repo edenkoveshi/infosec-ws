@@ -26,11 +26,12 @@
 
 
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Eden Koveshi");
 
 
 int contains(__u32 array[],__u32 item);
 int length(__u32 array[]);
-__u32 inline_network[] = {HOST_1_IP,HOST_2_IP,FW_LEG_1,FW_LEG_1};
+__u32 internal_network[] = {HOST_1_IP,HOST_2_IP,FW_LEG_1,FW_LEG_2};
 
 //code partially taken from https://stackoverflow.com/questions/13071054/how-to-echo-a-packet-in-kernel-space-using-netfilter-hooks
 static unsigned int inspect_incoming_pkt(unsigned int hooknum,
@@ -102,17 +103,10 @@ static unsigned int inspect_incoming_pkt(unsigned int hooknum,
 	src_ip = be32_to_cpu(iph->saddr);
 	dst_ip = be32_to_cpu(iph->daddr);
 
-	/*printk(KERN_INFO "src_ip:%u",src_ip);
-	printk(KERN_INFO "LEG_1:%u",FW_LEG_1);
-	printk(KERN_INFO "LEG_2:%u",FW_LEG_2);
-	printk(KERN_INFO "dst_ip:%u",dst_ip);
-	printk(KERN_INFO "HOST_1:%u",HOST_1_IP);
-	printk(KERN_INFO "HOST_2:%u",HOST_2_IP);*/
-
 	/*
-		Packet from inside the inline network
+		Packet from inside the internal network
 	*/
-	if(contains(inline_network,src_ip)){
+	if(contains(internal_network,src_ip)){
 		printk(KERN_INFO "*** packet passed ***");
 		return NF_ACCEPT;
 	}
@@ -121,14 +115,6 @@ static unsigned int inspect_incoming_pkt(unsigned int hooknum,
 		Packets destined for FW
 	*/
 	if(dst_ip == FW_LEG_1 || dst_ip == FW_LEG_2 || dst_ip == FW_LEG_3){
-		printk(KERN_INFO "*** packet passed ***");
-		return NF_ACCEPT;
-	}
-
-	/*
-		Communication with rest of the internet
-	*/
-	if(src_ip == FW_LEG_3 || !contains(inline_network,dst_ip)){
 		printk(KERN_INFO "*** packet passed ***");
 		return NF_ACCEPT;
 	}
