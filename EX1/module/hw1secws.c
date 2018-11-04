@@ -14,7 +14,6 @@
 #define MODULE
 #endif
 
-#define MAJOR_NUM 42
 #define MODULE_NAME "pkt-sniffer"
 #define SUCCESS 1
 #define ERROR 0
@@ -22,16 +21,10 @@
 #define HOST_2_IP 0x0a000202 //10.0.2.2
 #define FW_LEG_1 0x0a000103 //10.0.1.3
 #define FW_LEG_2 0x0a000203 //10.0.2.3
-#define FW_LEG_3 0x0a000403 //10.0.4.3
 
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Eden Koveshi");
 
-
-int contains(__u32 array[],__u32 item);
-int length(__u32 array[]);
-__u32 internal_network[] = {HOST_1_IP,HOST_2_IP,FW_LEG_1,FW_LEG_2};
 
 //code partially taken from https://stackoverflow.com/questions/13071054/how-to-echo-a-packet-in-kernel-space-using-netfilter-hooks
 static unsigned int inspect_incoming_pkt(unsigned int hooknum,
@@ -40,11 +33,11 @@ static unsigned int inspect_incoming_pkt(unsigned int hooknum,
                         const struct net_device *out,
                         int (*okfn)(struct sk_buff *));
 
-/*static unsigned int inspect_outgoing_pkt(unsigned int hooknum,
+static unsigned int inspect_outgoing_pkt(unsigned int hooknum,
                         struct sk_buff *skb,
                         const struct net_device *in,
                         const struct net_device *out,
-                        int (*okfn)(struct sk_buff *));*/
+                        int (*okfn)(struct sk_buff *));
 
 static struct nf_hook_ops incoming_pkt_ops = {
     .pf = NFPROTO_IPV4,
@@ -53,13 +46,17 @@ static struct nf_hook_ops incoming_pkt_ops = {
     .hook = inspect_incoming_pkt,
 };
 
-/*static struct nf_hook_ops outgoing_pkt_ops = {
+static struct nf_hook_ops outgoing_pkt_ops = {
     .pf = NFPROTO_IPV4,
     .priority = 1,
     .hooknum = NF_INET_LOCAL_OUT,
     .hook = inspect_outgoing_pkt,
-};*/
+};
 
+
+/*
+	Upon catching an incoming packet, pass it forward iff it's destination ip belong to the FW.
+*/
 static unsigned int inspect_incoming_pkt(unsigned int hooknum,
                         struct sk_buff *skb,
                         const struct net_device *in,
@@ -67,7 +64,6 @@ static unsigned int inspect_incoming_pkt(unsigned int hooknum,
                         int (*okfn)(struct sk_buff *)){
 	//variable declerations
 	struct iphdr* iph;
-	__u32 src_ip;
 	__u32 dst_ip;
 
 	//error checks
@@ -82,17 +78,65 @@ static unsigned int inspect_incoming_pkt(unsigned int hooknum,
 		return NF_DROP;
 	}
 
-	/*if(!out){
-		printk(KERN_ALERT "Error in out,exiting..");
-		return NF_DROP;
-	}*/
-
 	if(!okfn){
 		printk(KERN_ALERT "Error in okfn,exiting..");
 		return NF_DROP;
 	}
 
+	//construcing ip header, and extracting destination ip
+	iph = (struct iphdr *) skb_header_pointer (skb, 0, 0, NULL); //construct ip header of hooked pkt
+	if(!iph){
+		printk(KERN_ALERT "Error constructing IP packet\n");
+		printk(KERN_ALERT "*** packet blocked ***");
+		return NF_DROP;
+	}
 
+	dst_ip = be32_to_cpu(iph->daddr);
+
+	/*
+		Packets destined for FW
+	*/
+	if(dst_ip == FW_LEG_1 || dst_ip == FW_LEG_2){
+		printk(KERN_INFO "*** packet passed ***");
+		return NF_ACCEPT;
+	}
+
+	printk(KERN_ALERT "*** packet blocked ***");
+	return NF_DROP;
+}
+
+/*
+	Upon catching an outgoing packet, pass it forward iff it's source ip belong to the FWT
+*/
+static unsigned int inspect_outgoing_pkt(unsigned int hooknum,
+                        struct sk_buff *skb,
+                        const struct net_device *in,
+                        const struct net_device *out,
+                        int (*okfn)(struct sk_buff *)){
+	//variable declerations
+	struct iphdr* iph;
+	__u32 src_ip;
+
+	//error checks
+	if(!skb){
+		printk(KERN_ALERT "Error in skb,exiting..");
+		printk(KERN_ALERT "*** packet blocked ***");
+		return NF_DROP;
+	}
+
+	if(!in){
+		printk(KERN_ALERT "Error in 'in',exiting..");
+		printk(KERN_ALERT "*** packet blocked ***");
+		return NF_DROP;
+	}
+
+	if(!okfn){
+		printk(KERN_ALERT "Error in okfn,exiting..");
+		printk(KERN_ALERT "*** packet blocked ***");
+		return NF_DROP;
+	}
+
+	//construcing ip header, and extracting destination ip
 	iph = (struct iphdr *) skb_header_pointer (skb, 0, 0, NULL); //construct ip header of hooked pkt
 	if(!iph){
 		printk(KERN_ALERT "Error constructing IP packet\n");
@@ -101,66 +145,17 @@ static unsigned int inspect_incoming_pkt(unsigned int hooknum,
 	}
 
 	src_ip = be32_to_cpu(iph->saddr);
-	dst_ip = be32_to_cpu(iph->daddr);
 
 	/*
-		Packet from inside the internal network
+		Packets coming from FW
 	*/
-	if(contains(internal_network,src_ip)){
+	if(src_ip == FW_LEG_1 || src_ip == FW_LEG_2){
 		printk(KERN_INFO "*** packet passed ***");
 		return NF_ACCEPT;
 	}
-
-	/*
-		Packets destined for FW
-	*/
-	if(dst_ip == FW_LEG_1 || dst_ip == FW_LEG_2 || dst_ip == FW_LEG_3){
-		printk(KERN_INFO "*** packet passed ***");
-		return NF_ACCEPT;
-	}
-
-	/*
-		Packet coming from host 1 or host 2
-	
-	if((src_ip == HOST_1_IP || src_ip == HOST_2_IP)){
-		printk(KERN_ALERT "*** packet passed ***");
-		return NF_ACCEPT;
-	}
-	*/
 
 	printk(KERN_ALERT "*** packet blocked ***");
 	return NF_DROP;
-}
-
-/*static unsigned int inspect_outgoing_pkt(unsigned int hooknum,
-                        struct sk_buff *skb,
-                        const struct net_device *in,
-                        const struct net_device *out,
-                        int (*okfn)(struct sk_buff *)){
-	printk(KERN_ALERT "Outgoing packet recieved");
-	return NF_ACCEPT;
-}*/
-
-/*
-	Check whether __u32 array contains an item of type __u32
-*/
-int contains(__u32 array[],__u32 item){
-	int i;
-	for(i=0;i<length(array);i++){
-		if(array[i] == item) return SUCCESS;
-	}
-	return ERROR;
-}
-
-/*
-	Return length of a __u32 array
-*/
-int length(__u32 array[]){
-	int i=0;
-	while(array[i] != NULL){
-		i++;
-	}
-	return i;
 }
 
 
@@ -168,12 +163,12 @@ int length(__u32 array[]){
 //init and exit functions
 static int __init sniffer_init(void){
 	printk(KERN_INFO "Loading module %s\n",MODULE_NAME);
-	return nf_register_hook(&incoming_pkt_ops);// && nf_register_hook(&outgoing_pkt_ops);
+	return nf_register_hook(&incoming_pkt_ops) && nf_register_hook(&outgoing_pkt_ops); //register both hooks
 }
 
 static void __exit sniffer_exit(void){
-	nf_unregister_hook(&incoming_pkt_ops);
-	//nf_unregister_hook(&outgoing_pkt_ops);
+	nf_unregister_hook(&incoming_pkt_ops); //unregister hooks
+	nf_unregister_hook(&outgoing_pkt_ops);
     printk(KERN_INFO "%s module stopped\n",MODULE_NAME);
 }
 
