@@ -5,6 +5,9 @@
 \save_transient_properties true
 \origin unavailable
 \textclass article
+\begin_preamble
+\date{}
+\end_preamble
 \use_default_options true
 \maintain_unincluded_children false
 \language english
@@ -85,7 +88,7 @@ Workshop in Information Security
 Exercise 1
 \end_layout
 
-\begin_layout Author
+\begin_layout Date
 Eden Koveshi - 316221746
 \end_layout
 
@@ -234,7 +237,13 @@ packet-sniffer
 \end_layout
 
 \begin_layout Standard
-First I defined a hook:
+There are two hooks:
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+HOOK 1:
 \end_layout
 
 \begin_layout Standard
@@ -243,12 +252,17 @@ uestions/13071054/how-to-echo-a-packet-in-kernel-space-using-netfilter-hooks
 \end_layout
 
 \begin_layout Standard
-The hooknum is NF_INET_PRE_ROUTING to catch incoming packets, before making
- a routing decision.
+The hooknum is NF_INET_PRE_ROUTING to catch 
+\shape italic
+incoming
+\shape default
+ packets, before making a routing decision.
 \end_layout
 
 \begin_layout Standard
-The function that's called upon catching a packet is inspect_incoming_packet:
+The function that's called upon catching a packet is 
+\shape italic
+inspect_incoming_packet:
 \end_layout
 
 \begin_layout Standard
@@ -257,8 +271,11 @@ After passing error checks, the function creates an IP header from the sk_buff
 \end_layout
 
 \begin_layout Standard
-It extracts the source address and destination address fields, converts
- them to Little Endian using be32_to_cpu.
+It extracts the 
+\shape italic
+destination address (daddr)
+\shape default
+ field, converts it to Little Endian using be32_to_cpu.
 \end_layout
 
 \begin_layout Standard
@@ -266,15 +283,42 @@ Then it decides whether the packet passes or not.
 \end_layout
 
 \begin_layout Standard
-A packet passes if:
+A packet passes iff is destined to the FW.
 \end_layout
 
-\begin_layout Itemize
-It is within the internal network
+\begin_layout Standard
+
+\series bold
+HOOK 2:
 \end_layout
 
-\begin_layout Itemize
-It is destined to the FW, source doesn't matter
+\begin_layout Standard
+This hook is of type NF_INET_LOCAL_OUT to catch 
+\shape italic
+outgoing
+\shape default
+ packets
+\end_layout
+
+\begin_layout Standard
+The function that's called upon catching a packet is 
+\shape italic
+inspect_outgoing_pkt:
+\end_layout
+
+\begin_layout Standard
+It is defined exactly the same,only that this time it extracts the
+\shape italic
+ source address (saddr) 
+\shape default
+field and checks whether it belongs to the FW or not, and decides whether
+ to pass the packet or not accordingly.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Init and Exit functions:
 \end_layout
 
 \begin_layout Standard
@@ -282,26 +326,8 @@ As this is a kernel module, it has init and exit functions.
 \end_layout
 
 \begin_layout Standard
-The init function registers the hook, and the exit function unregisters
- it.
-\end_layout
-
-\begin_layout Standard
-I've also added two extra functions, for simplicity:
-\end_layout
-
-\begin_layout LyX-Code
-length(__u32 array[]): returns the length of the array
-\end_layout
-
-\begin_layout LyX-Code
-contains(__u32 array[],__u32 item): returns 1 iff the array contains the
- item
-\end_layout
-
-\begin_layout Standard
-Both functions deal with __u32 type elements as they are needed only for
- IPs at the moment.
+The init function registers the hooks, and the exit function unregisters
+ them.
 \end_layout
 
 \end_body
