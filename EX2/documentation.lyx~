@@ -121,7 +121,7 @@ Block()
 \end_layout
 
 \begin_layout Standard
-update the appropriate counter and return NF_ACCEPT/NF_DROP accordingly.
+increment the appropriate counter and return NF_ACCEPT/NF_DROP accordingly.
 \end_layout
 
 \begin_layout Part*
@@ -141,7 +141,73 @@ display()
 \end_layout
 
 \begin_layout Standard
-Shows packets statistics, using 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+	
+\end_layout
+
+\end_inset
+
+Shows packets statistics, using the counters 
+\emph on
+passed_ctr
+\emph default
+ and 
+\emph on
+blocked_ctr.
+\end_layout
+
+\begin_layout Standard
+The 
+\emph on
+modify() 
+\emph default
+function:
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+	
+\end_layout
+
+\end_inset
+
+Check if the given parameter is 0.If it does,reinitializes the counters.
+\end_layout
+
+\begin_layout Standard
+They are registered as an attribute as explained in the example.
+\end_layout
+
+\begin_layout Standard
+The module 
+\emph on
+init
+\emph default
+ and 
+\emph on
+exit 
+\emph default
+were changed as well:
+\end_layout
+
+\begin_layout Standard
+The 
+\emph on
+init 
+\emph default
+function now initializes a sysfs device, and the 
+\emph on
+exit 
+\emph default
+function destroys it.
 \end_layout
 
 \end_body

@@ -92,7 +92,11 @@ Exercise 2
 Eden Koveshi 316221746
 \end_layout
 
-\begin_layout Part*
+\begin_layout Part
+Kernel Code
+\end_layout
+
+\begin_layout Section*
 Counting passed and blocked packets
 \end_layout
 
@@ -124,7 +128,7 @@ Block()
 increment the appropriate counter and return NF_ACCEPT/NF_DROP accordingly.
 \end_layout
 
-\begin_layout Part*
+\begin_layout Section*
 Writing a sysfs device
 \end_layout
 
@@ -208,6 +212,86 @@ function now initializes a sysfs device, and the
 exit 
 \emph default
 function destroys it.
+\end_layout
+
+\begin_layout Standard
+The class name is 
+\emph on
+sniffer
+\emph default
+, the device name is 
+\emph on
+pkt-sniffer
+\emph default
+, and the attribute name is 
+\emph on
+pkt_summary
+\emph default
+.
+\end_layout
+
+\begin_layout Part
+User-space Code
+\end_layout
+
+\begin_layout Standard
+The user-space code is quite simple.
+\end_layout
+
+\begin_layout Standard
+It checks how many arguments it is given, it can be either 0 or 1.
+\end_layout
+
+\begin_layout Standard
+If an argument is given, it checks if it's 
+\begin_inset Quotes eld
+\end_inset
+
+0
+\begin_inset Quotes erd
+\end_inset
+
+, and if so, executes 
+\emph on
+
+\begin_inset Quotes eld
+\end_inset
+
+echo 0 > sysfs/class/sniffer/pkt-sniffer/pkt_summary
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\emph default
+which invokes the 
+\emph on
+modify()
+\emph default
+ function, as explained in class.
+\end_layout
+
+\begin_layout Standard
+If an argument is not given, it executes 
+\emph on
+
+\begin_inset Quotes eld
+\end_inset
+
+cat sysfs/class/sniffer/pkt-sniffer/pkt_summary
+\begin_inset Quotes erd
+\end_inset
+
+
+\emph default
+,which invokes the 
+\emph on
+display()
+\emph default
+ function.
+\end_layout
+
+\begin_layout Standard
+In any other case, it throws an error.
 \end_layout
 
 \end_body
