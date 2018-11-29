@@ -1,5 +1,5 @@
 #include "fw_rules.h"
-#define IS_LOCALHOST(x) (x > 2130706431 && x < 2147483648)
+#define IS_LOCALHOST(x) (x > 2130706431U && x < 2147483648U)
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Eden Koveshi");
