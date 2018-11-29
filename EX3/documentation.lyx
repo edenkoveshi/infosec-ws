@@ -1,0 +1,1731 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\begin_preamble
+\date{}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Information Security Workshop
+\end_layout
+
+\begin_layout Author
+Exercise 3
+\end_layout
+
+\begin_layout Date
+Eden Koveshi 316221746
+\end_layout
+
+\begin_layout Standard
+The project consists of a firewall kernel module and a user interface, where
+ the firewall module is consisted of 
+\emph on
+list,fw_rules,fw_log 
+\emph default
+and 
+\emph on
+fw 
+\emph default
+objects (source and header files), and the user interface is consisted of
+ 
+\emph on
+user.c
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+In general, this is a stateless firewall, allowing the user to load custom
+ rules, catching packets and passing/blocking them according to the rules,
+ and logging all traffic going through it.
+ 
+\end_layout
+
+\begin_layout Standard
+As stated already, the firewall is a kernel module that consists of two
+ devices - 
+\emph on
+fw_rules
+\emph default
+, a 
+\emph on
+sysfs device 
+\emph default
+responsible for all rule-related work, and 
+\emph on
+fw_log 
+\emph default
+- resposible for all log-related work.
+ They are patched up together into one kernel module in 
+\emph on
+fw
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Note: 
+\emph default
+in the kernel module, 
+\emph on
+kmalloc's 
+\emph default
+are used with 
+\emph on
+GFP_ATOMIC
+\emph default
+.
+ This flag is needed in many of them due to context switches during packet
+ catching.
+ I have decided to use it in all of the 
+\emph on
+kmalloc's 
+\emph default
+as it works fine for actions not performed during context switches too.
+ 
+\end_layout
+
+\begin_layout Part*
+List (list.c,list.h)
+\end_layout
+
+\begin_layout Standard
+This is an implementation of a standard doubly-linked (non-circular) list
+ ADT, where the info of the list nodes is a pointer to a log row.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Note: 
+\emph default
+There are list functions that are not included here since they are irrelevant.
+ However,there are also fucntions that were included but not used as I thought
+ they'd be useful and it turned out they're not.
+ They are submitted as I believe they can help later in the project.
+ They will not be discussed in this document.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+struct node_t:
+\end_layout
+
+\begin_layout Standard
+This is a struct representing a list node, containing pointers to next and
+ previous node, and a log row.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+node_t* init_node(void):
+\end_layout
+
+\begin_layout Standard
+This function simply initializes an empty node, and returns a pointer to
+ it.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int assign_log(node_t* node,log_row_t* log):
+\end_layout
+
+\begin_layout Standard
+This functions assigns a (non-null) log row to a (non-null) node.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success and -1 on error.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+void destroy_node(node_t* node):
+\end_layout
+
+\begin_layout Standard
+Frees the memory of a given node.
+ If it has a non-empty log row, it frees it's memory as well.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int add_after(node_t* new,node_t* node):
+\end_layout
+
+\begin_layout Standard
+Assigns 
+\emph on
+new 
+\emph default
+next in the list right after 
+\emph on
+node
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success and -1 on error.
+\end_layout
+
+\begin_layout Part*
+Rules (fw_rules.c,fw_rules.h)
+\end_layout
+
+\begin_layout Standard
+This part of code is responsible for all rule-related functions, with one
+ exclusion - the hook function is included here as well, as it links rule
+ and log devices, this is also the most major function in this kernel module,
+ and contains all the basic flow.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+unsigned int hook_func(unsigned int hooknum, struct sk_buff *skb, const
+ struct net_device *in, const struct net_device *out, int (*okfn)(struct
+ sk_buff *)):
+\end_layout
+
+\begin_layout Standard
+As stated before, this is the hook function which links rules and logs,
+ and contains the basic program flow.
+\end_layout
+
+\begin_layout Standard
+This function is registered to a forwarding hook (in fw.c) and does the following
+:
+\end_layout
+
+\begin_layout Standard
+Upon catching a packet, inspect it's fields and compare them to each one
+ of the rules, to decide whether it should be forwarded along or dropped.
+ A packet may be passed only if a rule matches it, and says to allow it.
+ A packet will be dropped in any one of the following cases: 
+\emph on
+christsmas packet - 
+\emph default
+as defined in ex.3 worksheet, firewall is not active, internal error, a matching
+ rule was found ordering to drop it, or no matching rule was found.
+ The former has a priority over the latter, e.g.
+ a christmas packet will be dropped even if it matches an accepting rule.
+\end_layout
+
+\begin_layout Standard
+After a routing decision is made, the packet is logged including the decision
+ and the reason.
+\end_layout
+
+\begin_layout Standard
+Returns NF_ACCEPT or NF_DROP according to the decision made.
+\end_layout
+
+\begin_layout Standard
+This function is protected under spin lock
+\begin_inset Formula $^{1}$
+\end_inset
+
+ to avoid race conditions.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Note: in contrast to any other rule field, the packet's direction is computed
+ here.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int compare_to_rule(struct sk_buff* skb,rule_t* rule,direction_t dir):
+\end_layout
+
+\begin_layout Standard
+This function extracts the packet's fields out of the network and transport
+ header, using the sk_buff functions.
+\end_layout
+
+\begin_layout Standard
+It compares each one of the extracted fields, against the same field in
+ 
+\emph on
+rule.
+\end_layout
+
+\begin_layout Standard
+It also recieves 
+\emph on
+dir 
+\emph default
+as it is computed in 
+\emph on
+hook_func
+\emph default
+, and compared here to the rule's direction.
+\end_layout
+
+\begin_layout Standard
+If there are any different fields, aborts and returns -1, otherwise returns
+ 0.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+unsigned int is_xmas(struct sk_buff* skb):
+\end_layout
+
+\begin_layout Standard
+This function inspects the packet TCP flags (if there are any) to decide
+ whether or not it's a christmas packet, as defined in ex.3 worksheet.
+\end_layout
+
+\begin_layout Standard
+Returns 1 if it's a christmas packet, 0 otherwise.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+decision_t* compare_pkt_against_rules(struct sk_buff* skb,direction_t dir):
+\end_layout
+
+\begin_layout Standard
+This functions compares the given packet against every rule in the rule
+ table.
+\end_layout
+
+\begin_layout Standard
+Aborts when a matching rule is found, or when it completes going over the
+ entire rule table.
+\end_layout
+
+\begin_layout Standard
+Returns a decision packed in 
+\emph on
+struct decision_t,
+\begin_inset space ~
+\end_inset
+
+
+\emph default
+which is discussed later on.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir):
+\end_layout
+
+\begin_layout Standard
+This function extracts the packet fields and checks if it's a christmas
+ packet and if the firewall is active.
+ If so, sends it to 
+\emph on
+compare_pkt_against_rules.
+\end_layout
+
+\begin_layout Standard
+Returns a routing decision.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int append_rule(rule_t* rule):
+\end_layout
+
+\begin_layout Standard
+Adds a new rule to the rule table, pointed by 
+\emph on
+rule
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success and -1 on failure.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+void add_localhost(void),void add_prot_other(void):
+\end_layout
+
+\begin_layout Standard
+Add built-in rules allowing localhost, and communication based on protocols
+ not in 
+\emph on
+prot_t 
+\emph default
+struct.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+void clear_rules(void):
+\end_layout
+
+\begin_layout Standard
+Clears the rule table and frees it's memory.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int string_to_ip(char** ip_string,unsigned int* ip,unsigned int* mask,unsigned
+ int* mask_size):
+\end_layout
+
+\begin_layout Standard
+This function recieves an ip in conventional dotted human-readable format
+ (a.b.c.d/x) pointed by 
+\emph on
+ip_string
+\emph default
+ and converts it to integers.
+ Integer ip is stored in 
+\emph on
+ip,
+\emph default
+mask in 
+\emph on
+mask, 
+\emph default
+and size of the mask in 
+\emph on
+mask_size
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+This is done with standard string manipulation, using 
+\emph on
+strsep 
+\emph default
+to separate ip from mask and then each one of the bytes.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success and -1 on failure.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int parse_protocol(char* prot,rule_t* rule):
+\end_layout
+
+\begin_layout Standard
+This function parses a string repesenting a protocol, pointed by 
+\emph on
+prot 
+\emph default
+and assigns 
+\emph on
+rule
+\emph default
+'s protocol accordingly.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success, -1 otherwise.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int parse_port(char* port, rule_t* rule,int flag):
+\end_layout
+
+\begin_layout Standard
+Same as 
+\emph on
+parse_protocol, 
+\emph default
+this time with a port.
+ Argument 
+\emph on
+flag 
+\emph default
+indicates whether it is 
+\emph on
+rule
+\emph default
+'s source or destination port.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success, -1 otherwise.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int parse_rule_string(char* rule_string,rule_t* rule):
+\end_layout
+
+\begin_layout Standard
+This function recieves a string representing a rule in the format explained
+ in ex.3 worksheet, and parses it into a rule.
+\end_layout
+
+\begin_layout Standard
+Makes use of the 3 parsing functions described above.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success, -1 on failure.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+log_row_t* create_log(struct sk_buff* skb,decision_t* res,unsigned char
+ hooknum):
+\end_layout
+
+\begin_layout Standard
+This function recieves an sk_buff representing a packet header, pointed
+ by 
+\emph on
+skb
+\emph default
+, a routing decision 
+\emph on
+res 
+\emph default
+that was made for the packet, and the hooknum that caught the packet, and
+ creates a suitable log row for it.
+\end_layout
+
+\begin_layout Standard
+Returns a pointer to the log row, or NULL on error.
+\end_layout
+
+\begin_layout Standard
+This also includes 
+\emph on
+timestamping
+\emph default
+
+\begin_inset Formula $^{2}$
+\end_inset
+
+ the log.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Attribute functions, allowing communication between user and kernel space:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t size_show(struct device *dev, struct device_attribute *attr, char
+ *buf):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+show 
+\emph default
+function for the 
+\emph on
+fw_rules' rules_size 
+\emph default
+attribute discussed later.
+\end_layout
+
+\begin_layout Standard
+Returns the number of rules in the rule table.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t active_show(struct device *dev, struct device_attribute *attr, char
+ *buf):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+show 
+\emph default
+function for the 
+\emph on
+fw_rules' active 
+\emph default
+attribute discussed later.
+\end_layout
+
+\begin_layout Standard
+Returns 1 if the firewall is active, 0 otherwise.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t active_store(struct device *dev, struct device_attribute *attr,
+ const char *buf, size_t count):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+store 
+\emph default
+function for the 
+\emph on
+fw_rules' active 
+\emph default
+attribute discussed later.
+\end_layout
+
+\begin_layout Standard
+Sets the firewall state to active if it's given 1 as input, or inactive
+ if it is given 0 as input.
+ In any other case, firewall state will not be changed.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t rule_store(struct device *dev,struct device_attribute *attr,const
+ char* buf,size_t count):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+store 
+\emph default
+function for the 
+\emph on
+fw_rules' add_rule 
+\emph default
+attribute discussed later.
+\end_layout
+
+\begin_layout Standard
+Recieves a string, representing a rule by the format explained in ex.3 worksheet,
+ and puts it in the table.
+\end_layout
+
+\begin_layout Standard
+If the string is not matching the rule format, it is ignored.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t clear_rules_store(struct device *dev,struct device_attribute *attr,const
+ char* buf,size_t count):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+store 
+\emph default
+function for the 
+\emph on
+fw_rules' clear_rules 
+\emph default
+attribute discussed later.
+\end_layout
+
+\begin_layout Standard
+Clears the rule table completely and frees memory of all rules, except for
+ the two default rules (localhost and prot_other).
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t set_cur_rule(struct device *dev,struct device_attribute *attr,const
+ char* buf,size_t count):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+store 
+\emph default
+function for the 
+\emph on
+fw_rules' show_rules 
+\emph default
+attribute discussed later.
+\end_layout
+
+\begin_layout Standard
+Sets the number of rule to read on the next reading from the attribute file.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t get_rule(struct device *dev, struct device_attribute *attr, char
+ *buf):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+show 
+\emph default
+function for the 
+\emph on
+fw_rules' show_rules 
+\emph default
+attribute discussed later.
+\end_layout
+
+\begin_layout Standard
+This functions takes the 
+\emph on
+n-th 
+\emph default
+rule, where 
+\emph on
+n 
+\emph default
+is the number recieved by last call to 
+\emph on
+set_cur_rule 
+\emph default
+(0 on default) and parses it into rule format.
+\end_layout
+
+\begin_layout Part*
+Log (fw_log.c, fw_log.h)
+\end_layout
+
+\begin_layout Standard
+This part of the module is responsible for log-related functionality.
+ It maintains a list of logs, using the functions described in 
+\emph on
+list 
+\emph default
+section, and saves a pointer to the head and tail nodes.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+node_t* add_log(log_row_t* log):
+\end_layout
+
+\begin_layout Standard
+Adds a given log to the list.
+\end_layout
+
+\begin_layout Standard
+Returns a pointer the node in which it was inserted, or NULL on error.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int compare_logs(log_row_t* a,log_row_t* b):
+\end_layout
+
+\begin_layout Standard
+This function checks whether two logs are equal or not, by comparing all
+ of their fields, except for timestamp and log count.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on match, -1 otherwise.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+node_t* find_log(log_row_t* log):
+\end_layout
+
+\begin_layout Standard
+Searches for the given log in the list of logs.
+\end_layout
+
+\begin_layout Standard
+If found, returns a pointer to the node in which it resides.
+\end_layout
+
+\begin_layout Standard
+Returns NULL in any other case.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+node_t* find_node_by_log(node_t* start,log_row_t* log,int (*compare_func)(log_ro
+w_t*,log_row_t*)):
+\end_layout
+
+\begin_layout Standard
+This function searches for a given log in the list of logs, starting from
+ 
+\emph on
+start 
+\emph default
+and comparing two logs using a comparison function 
+\emph on
+compare_func.
+ 
+\emph default
+The comparison function is expected to return 0 iff the logs are equal.
+\end_layout
+
+\begin_layout Standard
+If found, returns a pointer to the node in which it resides.
+\end_layout
+
+\begin_layout Standard
+Returns NULL in any other case.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int remove_log(log_row_t* log):
+\end_layout
+
+\begin_layout Standard
+Removes a log from the list.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success, -1 on failure.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int log_pkt(log_row_t* log):
+\end_layout
+
+\begin_layout Standard
+This function does the main work in this part of the module.
+ It recieves a log describing a packet and:
+\end_layout
+
+\begin_layout Standard
+1) Searches for it in the log list.
+\end_layout
+
+\begin_layout Standard
+2) If found:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+2.1) Incerements log count and updates timestamp.
+\end_layout
+
+\begin_layout Standard
+3) If not found:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+3.1) Adds it to the list, and updates the list tail.
+\end_layout
+
+\begin_layout Standard
+This function is protected under spin lock too.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on success and -1 on failure.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+void clear_logs(void):
+\end_layout
+
+\begin_layout Standard
+Clears the log list and frees it's memory.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int snprintf(char *buf, size_t size, const char *fmt, ...)
+\begin_inset Formula $^{3}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+An implementation of user-space library function 
+\emph on
+snprintf.
+\end_layout
+
+\begin_layout Standard
+Returns number of formatted elements.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int ip_to_string(unsigned int ip,unsigned char* s)
+\begin_inset Formula $^{4}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+Convers an ip given in integer form to a human readable format.
+\end_layout
+
+\begin_layout Standard
+Returns 0 on failure and a positive number on success.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Attribute related functions:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t num_logs_show(struct device *dev, struct device_attribute *attr,
+ char *buf):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+show 
+\emph default
+function for the 
+\emph on
+fw_log's log_size 
+\emph default
+attribute.
+\end_layout
+
+\begin_layout Standard
+Returns number of logs in the log list.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+ssize_t clear_logs_store(struct device *dev, struct device_attribute *attr,
+ const char *buf, size_t count):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+store 
+\emph default
+function for the 
+\emph on
+fw_log's clear_logs 
+\emph default
+attribute.
+\end_layout
+
+\begin_layout Standard
+It recieves any 
+\emph on
+byte, 
+\emph default
+and clears all logs from memory.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Device related functions:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int show_logs(struct file* file,char __user* buffer,size_t length,loff_t*
+ offset):
+\end_layout
+
+\begin_layout Standard
+This is the 
+\emph on
+fw_log 
+\emph default
+device 
+\emph on
+read 
+\emph default
+function.
+\end_layout
+
+\begin_layout Standard
+It returns a detailed description of all logs in the list, or the constant
+ string 
+\emph on
+
+\begin_inset Quotes eld
+\end_inset
+
+ERROR
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\emph default
+on error.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+int device_open(struct inode* inode,struct file* file),int device_release(struct
+ inode* inode,struct file* file):
+\end_layout
+
+\begin_layout Standard
+Do nothing, simply to override the default function.
+\end_layout
+
+\begin_layout Part*
+FW (fw.c,fw.h)
+\end_layout
+
+\begin_layout Standard
+This function is resposible for module and device creation.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+struct decision_t:
+\end_layout
+
+\begin_layout Standard
+This struct has two fields - action and reason.
+ Action can be either NF_ACCEPT or NF_DROP and reason can be any valid reason
+ to accept/block a packet.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+static char *log_devnode(struct device *dev, umode_t *mode)
+\begin_inset Formula $^{5}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+This function defines the permissions of the log device.
+ Currently set to 0666.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+module init function:
+\end_layout
+
+\begin_layout Standard
+The init function registers the log as char device, given the functions
+ explained in it's section.It then creates a sysfs class and two devices
+ under it, one for the log and one for the rules.
+\end_layout
+
+\begin_layout Standard
+It then registers all of the attributes, and the hook.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+module exit fucntion:
+\end_layout
+
+\begin_layout Standard
+unregisters all registered items, and frees all memory, including rules
+ and logs.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+About the attributes:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+fw_log/log_size: 
+\emph default
+Returns number of logs maintained in the log list.
+ Has reading permissions only and linked to 
+\emph on
+num_logs_show 
+\emph default
+function.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+fw_log/log_clear: 
+\emph default
+Has writing permissions only and linked to 
+\emph on
+clear_logs_store 
+\emph default
+function.
+ Invokes 
+\emph on
+clear_logs 
+\emph default
+upon writing.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+fw_rules/active: 
+\emph default
+Has reading and writing permissions, and linked to 
+\emph on
+active_show 
+\emph default
+and 
+\emph on
+active_store 
+\emph default
+functions.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+fw_rules/rules_size: 
+\emph default
+Has reading permissions only, and linked to 
+\emph on
+num_rules_show 
+\emph default
+functions.
+ Returns number of rules in the rule table.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+fw_rules/add_rule: 
+\emph default
+Has writing permissions only, and linked to 
+\emph on
+rule_store 
+\emph default
+function.
+ Recieves a string in the rule format defined, and adds a suitable rule
+ to the table.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+fw_rules/clear_rules: 
+\emph default
+Has writing permissions only, and linked to 
+\emph on
+clear_rules_store 
+\emph default
+function.
+ Upon writing, clears all rules.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+fw_rules/show_rules: 
+\emph default
+Has reading and writing permissions.
+ Writing updates the rules device static variable 
+\emph on
+cur_rule_num
+\emph default
+, and reading returns the rule at location
+\emph on
+ cur_rule_num
+\emph default
+.
+\end_layout
+
+\begin_layout Part*
+User-space program (user.c)
+\end_layout
+
+\begin_layout Standard
+There is really no much to say about the user space program, it parses the
+ user input and uses the attributes to get the work done.
+\end_layout
+
+\begin_layout Part*
+About the Makefiles
+\begin_inset Formula $^{6}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+user-program makefile is a standard gcc call, compiling it into main.
+\end_layout
+
+\begin_layout Standard
+The kernel module makefile, defines firewall.ko as an object and dependancies,
+ resulting in all code compliling into one module.
+\end_layout
+
+\begin_layout Part*
+References
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $[1]$
+\end_inset
+
+ - https://www.kernel.org/doc/Documentation/locking/spinlocks.txt
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula $[2]$
+\end_inset
+
+ - https://stackoverflow.com/questions/8653839/human-readable-timestamp-in-linux-
+kernel
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula $[3]$
+\end_inset
+
+ - https://stackoverflow.com/questions/12264291/is-there-a-c-function-like-sprint
+f-in-the-linux-kernel
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula $[4]$
+\end_inset
+
+ - https://stackoverflow.com/questions/1680365/integer-to-ip-address-c
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula $[5]$
+\end_inset
+
+ - https://stackoverflow.com/questions/11846594/how-can-i-programmatically-set-pe
+rmissions-on-my-char-device
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula $[6]$
+\end_inset
+
+ - https://stackoverflow.com/questions/349811/how-to-arrange-a-makefile-to-compil
+e-a-kernel-module-with-multiple-c-files
+\end_layout
+
+\end_body
+\end_document
