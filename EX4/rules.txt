@@ -1,0 +1,6 @@
+loopback any 127.0.0.1/8 127.0.0.1/8 any any any any accept
+GW_attack any any 10.0.2.15/32 any any any any drop
+TCP any 10.0.1.1/24 10.0.2.2/24 TCP any any any accept
+TCP2 any 10.0.2.2/24 any TCP any any any accept
+UDP any 10.0.2.2/24 any UDP any any any accept
+default any any any any any any any drop
