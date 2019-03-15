@@ -662,7 +662,7 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 				return res;
 			}
 
-			rev_conn = kmalloc(sizeof(conn_t),GFP_ATOMIC);
+			//rev_conn = kmalloc(sizeof(conn_t),GFP_ATOMIC);
 			rev_conn = reverse_conn(conn);
 			if(!rev_conn){
 				printk(KERN_INFO "failed at rev_conn\n");
@@ -674,6 +674,12 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 
 			lookup_conn = lookup(conn,compare_conn);
 			lookup_rev_conn = lookup(rev_conn,compare_conn);
+			if(lookup_rev_conn == NULL){
+				printk("lookup_rev_conn is null");
+			}
+			if(lookup_conn == NULL){
+				printk("lookup_conn is null");
+			}
 			kfree(rev_conn);
 
 			if(lookup_conn==NULL || lookup_rev_conn==NULL){ //conn or reverse conn not found
@@ -702,7 +708,7 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 		else{ //syn bit on
 			printk(KERN_INFO "tcp has syn");
 			if(tcph->ack){ //syn + ack
-				rev_conn = kmalloc(sizeof(conn_t),GFP_ATOMIC);
+				//rev_conn = kmalloc(sizeof(conn_t),GFP_ATOMIC);
 				rev_conn = reverse_conn(conn);
 				if(!rev_conn){
 					printk(KERN_INFO "failed at rev_conn 2\n");
@@ -732,12 +738,20 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 				}
 
 
-				if(assign_state(conn,TCP_HANDSHAKE_SYN_ACK) == ERROR || add_connection(conn) == ERROR){
+				if(assign_state(conn,TCP_HANDSHAKE_SYN_ACK) == ERROR){
 					printk(KERN_INFO "failed at assign_state/add_connection\n");
 					kfree(conn);
 					res->action = NF_DROP;
 					res->reason = REASON_ILLEGAL_VALUE;
 					return res;	
+				}
+
+				if(add_connection(conn) == ERROR){
+					printk(KERN_INFO "failed at add_conncetion\n");
+					kfree(conn);
+					res->action = NF_DROP;
+					res->reason = REASON_ILLEGAL_VALUE;
+					return res;
 				}
 
 				res->action = NF_ACCEPT;
@@ -750,6 +764,14 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 				rule_num = compare_pkt_against_rules(skb,dir); //will be reached only if syn is on
 
 				if(rule_num < 0){ //no matching rule
+					kfree(conn);
+					res->action = NF_DROP;
+					res->reason = rule_num;
+					return res;
+				}
+
+				if(rule_num > num_rules || rules[rule_num] == NULL){
+					printk(KERN_INFO "Error!");
 					kfree(conn);
 					res->action = NF_DROP;
 					res->reason = rule_num;

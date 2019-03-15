@@ -6,11 +6,14 @@ import scapy.all as S
 THIS_IP = "10.0.2.5"
 
 def pkt_filter(pkt):
-	print(pkt.summary)
+	#print(pkt.summary)
 	if S.IP in pkt:
 		if pkt[S.IP].dst != THIS_IP:
+			print("Not destined for this IP!")
 			return False
 		if S.TCP in packet:
+			print("Packet recieved!")
+			return True
 			if pkt[S.TCP].dport == 21 or pkt[S.TCP].sport == 21:
 				return True
 			if pkt[S.TCP].dport == 80 or pkt[S.TCP].sport == 80:
@@ -19,26 +22,27 @@ def pkt_filter(pkt):
 
 def handle_pkt(pkt):
 	data = pkt[S.TCP].payload
+	print(data)
 
-	print(pkt.summary)
+	#print(pkt.summary)
 
-	if pkt[S.TCP].dport == 80 or pkt[S.TCP].sport == 80:
+	#if pkt[S.TCP].dport == 80 or pkt[S.TCP].sport == 80:
 
-		res = check_http_packet(pkt,data)
-		if res[0] == 0:
-			return res[1]
-		else:
-			new_pkt = pkt.copy()
-			new_pkt[S.IP].dst = pkt[S.IP].src
-			new_pkt[S.IP].src = THIS_IP
-			del new_pkt[S.IP].chksum
-			del new_pkt[S.TCP].chksum #delete checksums so they will be recreated and corrected upon send
-			S.send(new_pkt)
-			return "Packet passed!"
+	res = check_http_packet(pkt,data)
+	if res[0] == 0:
+		return res[1]
+	else:
+		new_pkt = pkt.copy()
+		new_pkt[S.IP].dst = pkt[S.IP].src
+		new_pkt[S.IP].src = THIS_IP
+		del new_pkt[S.IP].chksum
+		del new_pkt[S.TCP].chksum #delete checksums so they will be recreated and corrected upon send
+		S.send(new_pkt)
+		return "Packet passed!"
 
 
-	elif pkt[S.TCP].dport == 21 or pkt[S.TCP].sport == 21:
-		return "boo"
+	#elif pkt[S.TCP].dport == 21 or pkt[S.TCP].sport == 21:
+	#	return "boo"
 
 def check_http_packet(pkt,data):
 		idx = data.find("\r\n\r\n")

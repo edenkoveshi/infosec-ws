@@ -55,12 +55,13 @@ typedef enum {
 #define SUCCESS			 0
 #define ERROR 			-1
 #define MAX_RULE_STRING_SIZE 110
-#define HOST_1_IP 		0x0a000101 //10.0.1.1
-#define HOST_2_IP 		0x0a000202 //10.0.2.2
-#define FW_LEG_1 		0x0a000103 //10.0.1.3
-#define FW_LEG_2 		0x0a000203 //10.0.2.3
+#define HOST_1_OUT_IP 		0x0a000101 //10.0.1.1
+#define HOST_2_OUT_IP 		0x0a000202 //10.0.2.2
+#define HOST_1_IN_IP 		0x0a000103 //10.0.1.3
+#define HOST_2_IN_IP 		0x0a000203 //10.0.2.3
 #define BYTE 			8
-#define PROXY_IP		0x0a000205 //10.0.2.5
+#define PROXY_HTTP_PORT		8080
+#define PROXY_FTP_PORT		2021
 
 // device minor numbers, for your convenience
 typedef enum {

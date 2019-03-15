@@ -56,7 +56,7 @@ conn_t* reverse_conn(conn_t* conn){
 	reverse->src_port = conn->dst_port;
 	reverse->dst_ip = conn->src_ip;
 	reverse->dst_port = conn->src_port;
-	reverse->timeout = conn->timeout;
+	//reverse->timeout = conn->timeout;
 	return reverse;
 }
 
@@ -95,10 +95,16 @@ int compute_state(conn_t* conn,struct tcphdr* tcph){
 }
 
 int assign_state(conn_t* conn,state_t state){
-	if(!conn) return ERROR;
+	if(conn == NULL) return ERROR;
 	conn->state = state;
 	return SUCCESS;
 }
+
+/*int assign_state_2(conn_t* conn,state_t state){
+	if(!conn) return ERROR;
+	conn->state = state;
+	return SUCCESS;
+}*/
 
 int is_valid_state(state_t cur,state_t cur_in_table,state_t rev){
     switch(cur){

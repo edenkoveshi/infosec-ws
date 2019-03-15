@@ -13,6 +13,21 @@ unsigned int hook_func(unsigned int hooknum,
                         const struct net_device *out,
                         int (*okfn)(struct sk_buff *));
 
+unsigned int hook_func_local_in(unsigned int hooknum, 
+								struct sk_buff *skb, 
+								const struct net_device *in, 
+								const struct net_device *out, 
+								int (*okfn)(struct sk_buff *));
+
+unsigned int hook_func_local_out(unsigned int hooknum, 
+								struct sk_buff *skb, 
+								const struct net_device *in, 
+								const struct net_device *out, 
+								int (*okfn)(struct sk_buff *));
+
+void redirect_out(struct sk_buff *skb,iphdr* iph,tcphdr* tcph);
+void redirect_in(struct sk_buff *skb,iphdr* iph,tcphdr* tcph)
+
 int compare_to_rule(struct sk_buff* skb,rule_t* rule,direction_t dir);
 
 unsigned int is_xmas(struct tcphdr* tcph);

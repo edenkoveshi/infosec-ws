@@ -56,11 +56,12 @@ conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
 
   key = kmalloc(6*2 + 11*2 + 10,GFP_ATOMIC); //ip*2 and port*2
   if(!key) return NULL;
-  snprintf(key,6*2+11*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
+  snprintf(key,6*2+11*2+9,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
   idx = joaat_hash(key,strlen(key));
   kfree(key);
+  //idx = joaat_hash("23554645454",strlen("23554645454"));
 
-  res = *(table + idx);
+  res = table[idx];
   //printk(KERN_INFO "checking if res is null,idx is %u\n",idx);
   if(res == NULL){
     printk("res is null");
@@ -85,10 +86,12 @@ conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
 
     if(res == NULL){
       printk(KERN_INFO "res is null\n");
+      return NULL;
     }
 
     else if(res->conn == NULL){
       printk(KERN_INFO "res_conn is null\n");
+      return NULL;
     }
 
 
@@ -112,13 +115,14 @@ void remove_conn_from_table(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
 
   key = kmalloc(6*2 + 11*2 + 10,GFP_ATOMIC); //ip*2 and port*2
   if(!key) return;
-  snprintf(key,6*2+11*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
+  snprintf(key,6*2+11*2+9,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
   idx = joaat_hash(key,strlen(key));
   kfree(key);
+  //idx = joaat_hash("23554645454",strlen("23554645454"));
 
-  if(*(table + idx) == NULL) return;
+  if(table[idx] == NULL) return;
 
-  res = *(table + idx);
+  res = table[idx];
 
   while(res != NULL){
     if(compare_func(res->conn,conn) == SUCCESS){ //MATCH
@@ -169,16 +173,18 @@ int add_connection(conn_t* conn){
   unsigned int idx;
   conn_list_t* res;
   //conn_list_t** s;
-  if(!conn) return ERROR;
+  if(!conn || !table) return ERROR;
   key = kmalloc(6*2 + 11*2 + 10,GFP_ATOMIC); //ip*2 and port*2
   if(!key) return ERROR;
-  snprintf(key,6*2+11*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
+  snprintf(key,6*2+11*2+9,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
   idx = joaat_hash(key,strlen(key));
+  //idx = joaat_hash("23554645454",strlen("23554645454"));
   kfree(key);
 
   printk(KERN_INFO "inserting, idx is %d\n",idx);
 
-  res = *(table + idx);
+  res = table[idx];
+  //res = NULL;
 
   if(res == NULL){
       res = kmalloc(sizeof(conn_list_t),GFP_ATOMIC);
@@ -187,15 +193,18 @@ int add_connection(conn_t* conn){
         return ERROR;
       }
       res->conn = conn;
-      *(table + idx) = res;
+      table[idx] = res;
   }
 
   else{
     //res = *s;
-    while(res != NULL){
+    while(res->next != NULL){
       res = res->next;
     }
-    add_after_conn_node(res,conn);
+    //res->next = kmalloc(sizeof(conn_list_t),GFP_ATOMIC);
+    if(add_after_conn_node(res,conn) == ERROR){
+      return ERROR;
+    }
   }
   return SUCCESS; 
 }
