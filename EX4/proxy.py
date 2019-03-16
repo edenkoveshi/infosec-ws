@@ -1,81 +1,222 @@
-import scapy.all as S
+#!/usr/bin/python
+# http://voorloopnul.com/blog/a-python-proxy-in-less-than-100-lines-of-code/
+# This is a simple port-forward / proxy, written using only the default python
+# library. If you want to make a suggestion or fix something you can contact-me
+# at voorloop_at_gmail.com
+# Distributed over IDC(I Don't Care) license
+import socket
+import select
+import time
+import sys
+import os
+import signal
+from threading import *
 
-#https://null-byte.wonderhowto.com/how-to/build-ftp-password-sniffer-with-scapy-and-python-0169759/
-#https://medium.com/@ismailakkila/black-hat-python-parsing-http-payloads-with-scapy-d937d01af9b1
+# Changing the buffer_size and delay, you can improve the speed and bandwidth.
+# But when buffer get to high or delay go too down, you can broke things
+buffer_size = 4096
+delay = 0.0001
+#forward_to_http = ('10.0.2.2', 80)
 
-THIS_IP = "10.0.2.5"
-
-def pkt_filter(pkt):
-	#print(pkt.summary)
-	if S.IP in pkt:
-		if pkt[S.IP].dst != THIS_IP:
-			print("Not destined for this IP!")
+class Forward:
+	def __init__(self):
+		self.forward = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.forward.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	def start(self, host, port):
+		print "Forward Host: %s Port: %d" % (host,port)
+		try:
+			if(port != 80 and port != 21): #if it's FTP-DATA
+				self.forward.bind(("",20)) #source port should be 20
+			self.forward.connect((host, port))
+			return self.forward
+		except Exception, e:
+			print e
 			return False
-		if S.TCP in packet:
-			print("Packet recieved!")
-			return True
-			if pkt[S.TCP].dport == 21 or pkt[S.TCP].sport == 21:
-				return True
-			if pkt[S.TCP].dport == 80 or pkt[S.TCP].sport == 80:
-				return True
-	return False
 
-def handle_pkt(pkt):
-	data = pkt[S.TCP].payload
-	print(data)
+class SimpleFTPDataServer:
+	input_list = []
+	channel = {}
+	forwardIp = ""
+	
+	def __init__(self, host, port, forwardPort, forwardIp):
+		self.forwardPort = forwardPort
+		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.server.bind((host, port))
+		self.server.listen(1)
+		self.forwardIp = forwardIp
+	
+	def main_loop(self):
+		self.input_list.append(self.server) 
+		while 1:
+			time.sleep(delay)
+			ss = select.select
+			inputready, outputready, exceptready = ss(self.input_list, [], [])
+			for self.s in inputready:
+				if self.s == self.server:
+					self.on_accept()
+					break
 
-	#print(pkt.summary)
+				#try: #added a try, so the proxy won't crash on client disconnection.
+				self.data = self.s.recv(buffer_size)
+				print "FTP-DATA Len: %d" % len(self.data)
+				if len(self.data) == 0:
+					self.on_close()
+					#sys.exit(0)
+					break
+				else:
+					self.on_recv()
+					self.on_close()
+					#sys.exit(0)
+				#except:
+					#break
 
-	#if pkt[S.TCP].dport == 80 or pkt[S.TCP].sport == 80:
+	def on_accept(self):
+		forward = Forward().start(self.forwardIp, self.forwardPort)
+		clientsock, clientaddr = self.server.accept()
+		if forward:
+			print clientaddr, "has connected"
+			self.input_list.append(clientsock)
+			self.input_list.append(forward)
+			self.channel[clientsock] = forward
+			self.channel[forward] = clientsock
+		else:
+			print "Can't establish connection with remote server.",
+			print "Closing connection with client side", clientaddr
+			clientsock.close()
 
-	res = check_http_packet(pkt,data)
-	if res[0] == 0:
-		return res[1]
-	else:
-		new_pkt = pkt.copy()
-		new_pkt[S.IP].dst = pkt[S.IP].src
-		new_pkt[S.IP].src = THIS_IP
-		del new_pkt[S.IP].chksum
-		del new_pkt[S.TCP].chksum #delete checksums so they will be recreated and corrected upon send
-		S.send(new_pkt)
-		return "Packet passed!"
+	def on_close(self):
+		print self.s.getpeername(), "has disconnected"
+		#remove objects from input_list
+		self.input_list.remove(self.s)
+		self.input_list.remove(self.channel[self.s])
+		out = self.channel[self.s]
+		# close the connection with client
+		self.channel[out].close()  # equivalent to do self.s.close()
+		# close the connection with remote server
+		self.channel[self.s].close()
+		# delete both objects from channel dict
+		del self.channel[out]
+		del self.channel[self.s]
+		sys.exit(0)
 
+	def on_recv(self):
+		data = self.data
+		if(data.startswith("MZ")): #data from the server starts with "exe" magic bytes 
+			self.on_close()
+			
+		print data
+		self.channel[self.s].send(data)
 
-	#elif pkt[S.TCP].dport == 21 or pkt[S.TCP].sport == 21:
-	#	return "boo"
+class TheServer:
+	def __init__(self, host, port, forwardPort):
+		self.forwardPort = forwardPort
+		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.server.bind((host, port))
+		self.server.listen(200)
+		self.input_list = []
+		self.channel = {}
 
-def check_http_packet(pkt,data):
-		idx = data.find("\r\n\r\n")
-		if idx == -1:
-			return [0,"Packet dropped, end of headers not found"]
-		_idx = data.find("\r\n\r\n",idx)
-		if _idx != -1:
-			return [0,"Packet dropped, double CLRF found twice"]
+	def main_loop(self):
+		self.input_list.append(self.server)
+		while 1:
+			time.sleep(delay)
+			ss = select.select
+			inputready, outputready, exceptready = ss(self.input_list, [], [])
+			for self.s in inputready:
+				if self.s == self.server:
+					self.on_accept()
+					break
 
-		headers = data[:idx]
-		content = data[idx + len("\r\n\r\n"):]
+				try: #added a try, so the proxy won't crash on client disconnection.
+					self.data = self.s.recv(buffer_size)
+					
+					if len(self.data) == 0:
+						self.on_close()
+						break
+					else:
+						self.on_recv()
+				except:
+					print "Exception!"
+					break
 
-		content_length_idx = headers.find("Content-Length:")
-		if content_length_idx == -1:
-			return [0,"Packet dropped, no content length field"]
+	def on_accept(self):
+		forward = Forward().start('10.0.2.2', self.forwardPort)
+		clientsock, clientaddr = self.server.accept()
+		if forward:
+			print clientaddr, "has connected"
+			self.input_list.append(clientsock)
+			self.input_list.append(forward)
+			self.channel[clientsock] = forward
+			self.channel[forward] = clientsock
+		else:
+			print "Can't establish connection with remote server.",
+			print "Closing connection with client side", clientaddr
+			clientsock.close()
 
-		content_length_header = headers[content_length_idx:].split('\r\n\r\n')[0] #This is a crappy hack to extract the header
-		if len(content_length_header) < len("Content-Length: 0"): #0 is arbitrary, this the minimal length of a content length header
-			return [0,"Packet dropped, content length header corrupted"]
+	def on_close(self):
+		print self.s.getpeername(), "has disconnected"
+		#remove objects from input_list
+		self.input_list.remove(self.s)
+		self.input_list.remove(self.channel[self.s])
+		out = self.channel[self.s]
+		# close the connection with client
+		self.channel[out].close()  # equivalent to do self.s.close()
+		# close the connection with remote server
+		self.channel[self.s].close()
+		# delete both objects from channel dict
+		del self.channel[out]
+		del self.channel[self.s]
 
-		#HTTP does not define a maximal length and so I won't, but I believe it is recommended
-
-		s = int(content_length_header.split(':')[0].strip())
-		if s != len(content):
-			return [0,"Packet dropped, content length mismatch"]
-
-		if s > 2000:
-			if s[:8] == "\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
-				return [0,"Packet dropped, large Office file not permitted"]
-
-def main(args):
-	S.sniff(lfilter=pkt_filter,prn=handle_pkt)
+	def on_recv(self):
+		data = self.data
+		# here we can parse and/or modify the data before send forward
+		if(self.forwardPort == 80): #HTTP FILTERING
+			if(data.startswith("HTTP/1.")): #data from the server starts with HTTP/1.
+				if("Content-Length:" in data): #check if header exists
+					if("\x0d" in data[data.find("Content-Length:") + len("Content-Length:") + 1:]):
+						con_len = int(data[data.find("Content-Length:") + len("Content-Length:") + 1:].partition("\x0d\x0a")[0])
+					else:
+						con_len = int(data[data.find("Content-Length:") + len("Content-Length:") + 1:].partition("\x0a")[0])
+					print "Got HTTP content length: %d" % con_len
+					if(con_len > 5000): #close the connection if more than 5000 bytes
+						self.on_close()
+						print data
+						return
+				else: #header doesn't exist, close the connection.
+					self.on_close()
+					print data
+					return
+					
+		elif(self.forwardPort == 21): #FTP Filtering
+			if(data.startswith("PORT")): #data from the client starts with PORT
+				if("\x0d" in data[data.find("PORT ") + len("PORT "):]):
+					PORT = data[data.find("PORT ") + len("PORT "):].partition("\x0d\x0a")[0]
+				else:
+					PORT = data[data.find("PORT ") + len("PORT "):].partition("\x0a")[0]
+				print "Got FTP PORT info: %s" % PORT
+				s = PORT.split(",")
+				portip = s[0]+"."+s[1]+"."+s[2]+"."+s[3]
+				portnumber = int(s[4])*256 + int(s[5])
+				ftp_data_server = SimpleFTPDataServer('0.0.0.0', portnumber,portnumber,portip)
+				t = Thread(target=ftp_data_server.main_loop, name="FTP DATA PROXY")	
+				t.start()
+					
+		print "ForwardPort: " + str(self.forwardPort) + " Data: " + data
+		self.channel[self.s].send(data)
 
 if __name__ == '__main__':
-    import sys
-    main(sys.argv)
+		http_server = TheServer('0.0.0.0', 8080,80)
+		ftp_server = TheServer('0.0.0.0', 2121,21)
+		t1 = Thread(target=http_server.main_loop, name="HTTP PROXY")	
+		t2 = Thread(target=ftp_server.main_loop, name="FTP PROXY")
+		
+		t1.start()
+		t2.start()
+		while 1:
+			try:
+				time.sleep(delay)
+			except KeyboardInterrupt:
+				print "Ctrl C - Stopping server"
+				os.kill(os.getpid(), signal.SIGKILL)
