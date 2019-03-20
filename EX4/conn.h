@@ -34,7 +34,7 @@ conn_t* init_conn(__be32 src_ip,__be16 src_port,__be32 dst_ip,__be16 dst_port);
 
 conn_list_t* init_conn_node(conn_t* conn);
 
-void destroy_conn_node(conn_list_t* list);
+void destroy_conn_node(conn_list_t* toRemove, conn_list_t* prev);
 
 int add_after_conn_node(conn_list_t* list,conn_t* new);
 
@@ -45,7 +45,5 @@ int compute_state(conn_t* conn,struct tcphdr* tcph);
 int assign_state(conn_t* conn,state_t state);
 
 int is_valid_state(state_t cur,state_t cur_in_table,state_t rev);
-
-int assign_state_2(conn_t* conn,state_t state);
 
 #endif

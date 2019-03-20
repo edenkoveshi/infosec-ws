@@ -32,18 +32,29 @@ conn_list_t* init_conn_node(conn_t* conn){
 	return list;
 }
 
-void destroy_conn_node(conn_list_t* list){
-	if(list->conn != NULL) kfree(list->conn);
-	kfree(list);
+void destroy_conn_node(conn_list_t* toRemove, conn_list_t* prev){
+	/*if(list->conn != NULL) kfree(list->conn);
+	kfree(list);*/
+	if(toRemove != NULL){
+		if(prev != NULL){
+			if(toRemove->next != NULL){
+				prev->next = toRemove->next;
+			}
+			else{
+				prev->next = NULL;
+			}
+		}
+		if(toRemove->conn != NULL) kfree(toRemove->conn);
+		kfree(toRemove);
+	}
 }
 
 int add_after_conn_node(conn_list_t* list,conn_t* new){
 	conn_list_t* c;
 	if(!list) return ERROR;
 	if(!new) return ERROR;
-	c = init_conn_node(new);
-	if(!c) return ERROR;
-	list->next = c;
+	list->next = init_conn_node(new);
+	if(!list->next) return ERROR;
 	return SUCCESS;
 }
 

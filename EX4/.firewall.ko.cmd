@@ -1,1 +1,0 @@
-cmd_/home/fw/github/infosec-ws/EX4/firewall.ko := ld -r -m elf_i386 -T /usr/src/linux-headers-3.2.0-37-generic-pae/scripts/module-common.lds --build-id  -o /home/fw/github/infosec-ws/EX4/firewall.ko /home/fw/github/infosec-ws/EX4/firewall.o /home/fw/github/infosec-ws/EX4/firewall.mod.o
