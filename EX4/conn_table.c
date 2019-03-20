@@ -34,15 +34,15 @@ void clean_conn_table(void){
   conn_list_t* list;
   conn_list_t* _list;
   if(table == NULL) return;
-  for(i; i < TABLE_SIZE; i++){
-    list = table[i];
+  while((table+i) !=NULL && *(table + i) != NULL){
+    list = *(table + i);
     while(list != NULL){
       _list = list;
       list = list->next;
       kfree(_list);
     }
-  } 
-  kfree(table);  
+    kfree(table + i);
+  }    
 }
 
 conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){

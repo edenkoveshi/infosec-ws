@@ -106,6 +106,7 @@ unsigned int hook_func(unsigned int hooknum,
 
 	dir = DIRECTION_ANY;
 	if(strcmp(in->name,IN_NET_DEVICE_NAME) == 0) { dir = DIRECTION_IN; }
+<<<<<<< HEAD
 	else if(strcmp(in->name,OUT_NET_DEVICE_NAME) == 0) { dir = DIRECTION_OUT; }
 	else{
 		/*printk(KERN_ALERT "No matching direction\n");
@@ -117,6 +118,9 @@ unsigned int hook_func(unsigned int hooknum,
 		kfree(result);*/
 		return NF_DROP;
 	}
+=======
+	if(strcmp(in->name,OUT_NET_DEVICE_NAME) == 0) { dir = DIRECTION_OUT; }
+>>>>>>> parent of 71a0c7b... Updates
 	
 	/*result = inspect_pkt(skb,dir);
 	if(!result) return NF_DROP;
@@ -135,8 +139,12 @@ unsigned int hook_func(unsigned int hooknum,
 	printk(KERN_INFO "**** action: %u reason: %d ******",result->action,result->reason);
 
 	action = result->action;
+<<<<<<< HEAD
 	if(action != NF_DROP && action != NF_ACCEPT) action = NF_DROP; //for safety
 	kfree(result);*/
+=======
+	kfree(result);
+>>>>>>> parent of 71a0c7b... Updates
 
 	/*if(action == NF_ACCEPT){//} && ((hooknum == NF_INET_PRE_ROUTING && dir = DIRECTION_IN) || (hooknum = NF_INET_LOCAL_OUT && dir = DIRECTION_OUT)){
 		if(skb_network_header(skb) == NULL){
@@ -213,7 +221,7 @@ void redirect_in(struct sk_buff* skb,struct iphdr* iph,struct tcphdr* tcph){
 		return;
 	}*/
 	if(check){
-		tcplen = skb->len - ip_hdrlen(skb);
+		tcplen = skb->len -(skb->len - ((iph->ihl )<< 2));
 	    tcph->check=0;
 	    if(csum_partial((char*)tcph,tcplen,0) == NULL){
 	    	printk(KERN_INFO "csum_partial is null\n");
@@ -257,7 +265,7 @@ void redirect_out(struct sk_buff *skb){
 	 	return;
 	}
 
-    tcph = (struct tcphdr *)(skb_transport_header(skb)+20);
+    tcph = (void *)iph+ (iph->ihl << 2);
 
     if(!tcph){
     	printk(KERN_INFO "failed at tcph\n");
@@ -307,7 +315,11 @@ void redirect_out(struct sk_buff *skb){
 	
 	//here starts the checksum fix for both IP and TCP
 	if(check){
+<<<<<<< HEAD
 		tcplen = skb->len - ip_hdrlen(skb);
+=======
+		tcplen = (skb->len - ((iph->ihl )<< 2));
+>>>>>>> parent of 71a0c7b... Updates
 	    tcph->check = 0;
 	    if(csum_partial((char*)tcph,tcplen,0) == NULL){
 	    	printk(KERN_INFO "csum_partial is null\n");
@@ -317,7 +329,7 @@ void redirect_out(struct sk_buff *skb){
 	    skb->ip_summed = CHECKSUM_NONE; //stop offloading
 	    iph->check = 0;
 	    iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
-	    printk(KERN_INFO "Redirect out new packet,src ip:%u,dst ip:%u,src port:%u.dst port: %u\n",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+	    printk(KERN_INFO "Redirect out new packet\n");
 	}
 	return;
 }
@@ -338,9 +350,6 @@ unsigned int hook_func_local_in(unsigned int hooknum,
 		}
 		sip   = ntohl(iph->saddr);
 		dip   = ntohl(iph->daddr);
-		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-		printk(KERN_INFO "Local In Packet: sip = %u.dip = %u",sip,dip);
-		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 		if (IS_LOCALHOST(sip) && IS_LOCALHOST(dip)){ // 127.0.0.0<=sip,dip<=127.255.255.255
 			return NF_ACCEPT;
 		}
@@ -348,7 +357,10 @@ unsigned int hook_func_local_in(unsigned int hooknum,
 			return NF_ACCEPT;
 		}
 	}
+<<<<<<< HEAD
 	printk(KERN_INFO "Drooping Local iN Packet\n");*/
+=======
+>>>>>>> parent of 71a0c7b... Updates
 	return NF_DROP;
 }
 
@@ -363,7 +375,7 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 		struct tcphdr *tcph;
 		//unsigned short int sport, dport;
 		int sip, dip;
-		//decision_t* d;
+		decision_t* d;
 
 		iph = (struct iphdr *)skb_network_header(skb);
 		if(!iph){ //not ip packet
@@ -371,27 +383,33 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 		}
 		sip   = ntohl(iph->saddr);
 		dip   = ntohl(iph->daddr);
-
-		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-		printk(KERN_INFO "Local Out Packet: sip = %u.dip = %u",sip,dip);
-		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 		
 		if (IS_LOCALHOST(sip) && IS_LOCALHOST(dip)){
 			return NF_ACCEPT;
 		}
 		if (dip == HOST1_OUT_IP || dip == HOST2_OUT_IP){ //proxy
 			if (iph->protocol==IPPROTO_TCP){ //TCP
+<<<<<<< HEAD
 				//d = inspect_pkt(skb,DIRECTION_OUT);
+=======
+				d = inspect_pkt(skb,DIRECTION_OUT);
+>>>>>>> parent of 71a0c7b... Updates
 				redirect_out(skb);
 				printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 				printk(KERN_INFO "Local Out Packet After Redirectio: sip = %u.dip = %u",ntohl(iph->saddr),ntohl(iph->daddr));
 				printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 				return NF_ACCEPT;
 			}
+<<<<<<< HEAD
 		}
 	}
 	//skb is null or protocol is not ipv4
 	printk(KERN_INFO "Dropping Local Out Packet\n");*/
+=======
+		}	
+	}
+	//skb is null or protocol is not ipv4
+>>>>>>> parent of 71a0c7b... Updates
 	return NF_DROP;
 
 }	

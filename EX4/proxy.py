@@ -113,7 +113,7 @@ class TheServer:
 		self.forwardPort = forwardPort
 		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.server.bind(('', port))
+		self.server.bind((host, port))
 		self.server.listen(200)
 		self.input_list = []
 		self.channel = {}
