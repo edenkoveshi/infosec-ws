@@ -61,24 +61,24 @@ unsigned int hook_func(unsigned int hooknum,
 
 	//error checks
 	if(!skb){
-		/*printk(KERN_ALERT "Error in skb,exiting..");
+		printk(KERN_ALERT "Error in skb,exiting..");
 		result = kmalloc(sizeof(decision_t),GFP_ATOMIC);
 		result->action = NF_DROP;
 		result->reason = REASON_ILLEGAL_VALUE;
 		log = create_log(skb,result,hooknum);
 		log_pkt(log);
-		kfree(result);*/
+		kfree(result);
 		return NF_DROP;
 	}
 
 	if(!in){
-		/*printk(KERN_ALERT "Error in 'in',exiting..");
+		printk(KERN_ALERT "Error in 'in',exiting..");
 		result = kmalloc(sizeof(decision_t),GFP_ATOMIC);
 		result->action = NF_DROP;
 		result->reason = REASON_ILLEGAL_VALUE;
 		log = create_log(skb,result,hooknum);
 		log_pkt(log);
-		kfree(result);*/
+		kfree(result);
 		return NF_DROP;
 	}
 
@@ -94,35 +94,31 @@ unsigned int hook_func(unsigned int hooknum,
 	}*/
 
 	if(!okfn){
-		/*printk(KERN_ALERT "Error in okfn,exiting..");
+		printk(KERN_ALERT "Error in okfn,exiting..");
 		result = kmalloc(sizeof(decision_t),GFP_ATOMIC);
 		result->action = NF_DROP;
 		result->reason = REASON_ILLEGAL_VALUE;
 		log = create_log(skb,result,hooknum);
 		log_pkt(log);
-		kfree(result);*/
+		kfree(result);
 		return NF_DROP;
 	}
 
 	dir = DIRECTION_ANY;
 	if(strcmp(in->name,IN_NET_DEVICE_NAME) == 0) { dir = DIRECTION_IN; }
-<<<<<<< HEAD
 	else if(strcmp(in->name,OUT_NET_DEVICE_NAME) == 0) { dir = DIRECTION_OUT; }
 	else{
-		/*printk(KERN_ALERT "No matching direction\n");
+		printk(KERN_ALERT "No matching direction\n");
 		result = kmalloc(sizeof(decision_t),GFP_ATOMIC);
 		result->action = NF_DROP;
 		result->reason = REASON_ILLEGAL_VALUE;
 		log = create_log(skb,result,hooknum);
 		log_pkt(log);
-		kfree(result);*/
+		kfree(result);
 		return NF_DROP;
 	}
-=======
-	if(strcmp(in->name,OUT_NET_DEVICE_NAME) == 0) { dir = DIRECTION_OUT; }
->>>>>>> parent of 71a0c7b... Updates
 	
-	/*result = inspect_pkt(skb,dir);
+	result = inspect_pkt(skb,dir);
 	if(!result) return NF_DROP;
 	log = create_log(skb,result,(unsigned char)hooknum);
 	if(log == NULL) return NF_DROP;
@@ -139,14 +135,10 @@ unsigned int hook_func(unsigned int hooknum,
 	printk(KERN_INFO "**** action: %u reason: %d ******",result->action,result->reason);
 
 	action = result->action;
-<<<<<<< HEAD
 	if(action != NF_DROP && action != NF_ACCEPT) action = NF_DROP; //for safety
-	kfree(result);*/
-=======
 	kfree(result);
->>>>>>> parent of 71a0c7b... Updates
 
-	/*if(action == NF_ACCEPT){//} && ((hooknum == NF_INET_PRE_ROUTING && dir = DIRECTION_IN) || (hooknum = NF_INET_LOCAL_OUT && dir = DIRECTION_OUT)){
+	if(action == NF_ACCEPT){//} && ((hooknum == NF_INET_PRE_ROUTING && dir = DIRECTION_IN) || (hooknum = NF_INET_LOCAL_OUT && dir = DIRECTION_OUT)){
 		if(skb_network_header(skb) == NULL){
 			printk(KERN_INFO "skb_network_header is null\n");
 			return action;
@@ -159,12 +151,12 @@ unsigned int hook_func(unsigned int hooknum,
 				redirect_in(skb,iph,tcph);
 			}
 		}
-	}*/
+	}
 
 	spin_unlock_irqrestore(&xxx_lock, flags);
 
-	//return action;
-	return NF_ACCEPT;
+	return action;
+	//return NF_ACCEPT;
 }
 
 void redirect_in(struct sk_buff* skb,struct iphdr* iph,struct tcphdr* tcph){
@@ -221,7 +213,7 @@ void redirect_in(struct sk_buff* skb,struct iphdr* iph,struct tcphdr* tcph){
 		return;
 	}*/
 	if(check){
-		tcplen = skb->len -(skb->len - ((iph->ihl )<< 2));
+		tcplen = skb->len - ip_hdrlen(skb);
 	    tcph->check=0;
 	    if(csum_partial((char*)tcph,tcplen,0) == NULL){
 	    	printk(KERN_INFO "csum_partial is null\n");
@@ -265,7 +257,7 @@ void redirect_out(struct sk_buff *skb){
 	 	return;
 	}
 
-    tcph = (void *)iph+ (iph->ihl << 2);
+    tcph = (struct tcphdr *)(skb_transport_header(skb)+20);
 
     if(!tcph){
     	printk(KERN_INFO "failed at tcph\n");
@@ -303,23 +295,19 @@ void redirect_out(struct sk_buff *skb){
 	if (tcph->dest == htons(20) && iph->saddr == htonl(HOST2_IN_IP)) //local proxy to FTP-DATA server. change source ip to be that of the client.
 	{			
 		//change source ip
-		iph->saddr = htonl(HOST1_OUT_IP);	  //10.0.1.1
+		iph->saddr = htonl(HOST1_OUT_IP);	  //10.1.1.1
 		check = 1;
 	}
 	if (tcph->source == htons(20) && iph->daddr == htonl(HOST1_OUT_IP)) //local proxy to FTP-DATA client. change source ip and port to be that of the server.
 	{			
 		//change source ip
-		iph->saddr = htonl(HOST2_OUT_IP);	  //10.0.2.2
+		iph->saddr = htonl(HOST2_OUT_IP);	  //10.1.2.2
 		check = 1;
 	}
 	
 	//here starts the checksum fix for both IP and TCP
 	if(check){
-<<<<<<< HEAD
-		tcplen = skb->len - ip_hdrlen(skb);
-=======
-		tcplen = (skb->len - ((iph->ihl )<< 2));
->>>>>>> parent of 71a0c7b... Updates
+		tcplen = skb->len - ip_hdrlen(iph);
 	    tcph->check = 0;
 	    if(csum_partial((char*)tcph,tcplen,0) == NULL){
 	    	printk(KERN_INFO "csum_partial is null\n");
@@ -329,7 +317,7 @@ void redirect_out(struct sk_buff *skb){
 	    skb->ip_summed = CHECKSUM_NONE; //stop offloading
 	    iph->check = 0;
 	    iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
-	    printk(KERN_INFO "Redirect out new packet\n");
+	    printk(KERN_INFO "Redirect out new packet,src ip:%u,dst ip:%u,src port:%u.dst port: %u\n",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
 	}
 	return;
 }
@@ -341,7 +329,7 @@ unsigned int hook_func_local_in(unsigned int hooknum,
 								const struct net_device *out, 
 								int (*okfn)(struct sk_buff *))
 {
-	/*struct iphdr *iph;
+	struct iphdr *iph;
 	unsigned int sip,dip;
 	if(skb != NULL){ //error check
 		iph = (struct iphdr *)skb_network_header(skb);
@@ -350,6 +338,9 @@ unsigned int hook_func_local_in(unsigned int hooknum,
 		}
 		sip   = ntohl(iph->saddr);
 		dip   = ntohl(iph->daddr);
+		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+		printk(KERN_INFO "Local In Packet: sip = %u.dip = %u",sip,dip);
+		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 		if (IS_LOCALHOST(sip) && IS_LOCALHOST(dip)){ // 127.0.0.0<=sip,dip<=127.255.255.255
 			return NF_ACCEPT;
 		}
@@ -357,10 +348,7 @@ unsigned int hook_func_local_in(unsigned int hooknum,
 			return NF_ACCEPT;
 		}
 	}
-<<<<<<< HEAD
-	printk(KERN_INFO "Drooping Local iN Packet\n");*/
-=======
->>>>>>> parent of 71a0c7b... Updates
+	printk(KERN_INFO "Drooping Local iN Packet\n");
 	return NF_DROP;
 }
 
@@ -370,12 +358,12 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 								const struct net_device *out, 
 								int (*okfn)(struct sk_buff *))
 {
-	/*if(skb != NULL){ //error check
+	if(skb != NULL){ //error check
 		struct iphdr *iph; 
 		struct tcphdr *tcph;
 		//unsigned short int sport, dport;
 		int sip, dip;
-		decision_t* d;
+		//decision_t* d;
 
 		iph = (struct iphdr *)skb_network_header(skb);
 		if(!iph){ //not ip packet
@@ -383,33 +371,24 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 		}
 		sip   = ntohl(iph->saddr);
 		dip   = ntohl(iph->daddr);
+
+		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+		printk(KERN_INFO "Local Out Packet: sip = %u.dip = %u",sip,dip);
+		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 		
 		if (IS_LOCALHOST(sip) && IS_LOCALHOST(dip)){
 			return NF_ACCEPT;
 		}
 		if (dip == HOST1_OUT_IP || dip == HOST2_OUT_IP){ //proxy
-			if (iph->protocol==IPPROTO_TCP){ //TCP
-<<<<<<< HEAD
+			//if (iph->protocol==IPPROTO_TCP){ //TCP
 				//d = inspect_pkt(skb,DIRECTION_OUT);
-=======
-				d = inspect_pkt(skb,DIRECTION_OUT);
->>>>>>> parent of 71a0c7b... Updates
 				redirect_out(skb);
-				printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-				printk(KERN_INFO "Local Out Packet After Redirectio: sip = %u.dip = %u",ntohl(iph->saddr),ntohl(iph->daddr));
-				printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 				return NF_ACCEPT;
-			}
-<<<<<<< HEAD
+			//}
 		}
 	}
 	//skb is null or protocol is not ipv4
-	printk(KERN_INFO "Dropping Local Out Packet\n");*/
-=======
-		}	
-	}
-	//skb is null or protocol is not ipv4
->>>>>>> parent of 71a0c7b... Updates
+	printk(KERN_INFO "Dropping Local Out Packet\n");
 	return NF_DROP;
 
 }	
@@ -558,15 +537,15 @@ static int __init fw_init(void){
 	init_conn_table();
 
 	nf_register_hook(&forwarded_pkt_ops);
-	//nf_register_hook(&internal_incoming_pkt_ops);
-	//nf_register_hook(&internal_outgoing_pkt_ops);	
+	nf_register_hook(&internal_incoming_pkt_ops);
+	nf_register_hook(&internal_outgoing_pkt_ops);	
 
 	return 0;
 }
 
 static void __exit fw_exit(void){
-	//nf_unregister_hook(&internal_outgoing_pkt_ops);
-	//nf_unregister_hook(&internal_incoming_pkt_ops);
+	nf_unregister_hook(&internal_outgoing_pkt_ops);
+	nf_unregister_hook(&internal_incoming_pkt_ops);
 	nf_unregister_hook(&forwarded_pkt_ops);
 	clear_logs();
 	clear_rules();
