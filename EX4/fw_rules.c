@@ -46,7 +46,7 @@ int compare_to_rule(struct sk_buff* skb,rule_t* rule,direction_t dir){
 
 	printk(KERN_INFO "****rule:%s****",rule->rule_name);
 
-	iph = (struct iphdr*)skb_network_header(skb); //construct ip header of hooked pkt
+	iph = ip_hdr(skb); //construct ip header of hooked pkt
 
 	if(!iph) return ERROR;
 
@@ -72,7 +72,7 @@ int compare_to_rule(struct sk_buff* skb,rule_t* rule,direction_t dir){
 
 	switch(protocol){
 		case PROT_TCP:
-			tcph = (struct tcphdr*)((char*)iph + (iph->ihl * 4));
+			tcph = (void *)iph + (iph->ihl << 2);
 			if(!tcph) return ERROR;
 			src_port = ntohs(tcph->source);
 			dst_port = ntohs(tcph->dest);
@@ -358,7 +358,7 @@ log_row_t* create_log(struct sk_buff* skb,decision_t* res,unsigned char hooknum)
 	log = kmalloc(sizeof(log_row_t),GFP_ATOMIC);
 	if(!log) return NULL;
 
-	iph = (struct iphdr*)skb_network_header(skb); //construct ip header of hooked pkt
+	iph = ip_hdr(skb);; //construct ip header of hooked pkt
 	if(!iph){
 		kfree(log);
 		return NULL;
@@ -374,7 +374,7 @@ log_row_t* create_log(struct sk_buff* skb,decision_t* res,unsigned char hooknum)
 	log->protocol = protocol;
 
 	if(protocol == PROT_TCP){
-		tcph = (struct tcphdr*)((char*)iph + (iph->ihl * 4));
+		tcph = (void *)iph + (iph->ihl << 2);
 		if(!tcph){
 			kfree(log);
 			return NULL;
@@ -621,7 +621,7 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 	 	return res;
 	}
 
-	iph = (struct iphdr*)skb_network_header(skb); //construct ip header of hooked pkt
+	iph = ip_hdr(skb);; //construct ip header of hooked pkt
 	if(!iph){
 		printk(KERN_INFO "failed at iph\n");
 		res->action = NF_DROP;
@@ -630,7 +630,7 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 	}
 
 	if(iph->protocol == PROT_TCP){
-		tcph = (struct tcphdr *)(skb_transport_header(skb)+20); //https://stackoverflow.com/questions/10162556/why-skb-transport-header-does-not-calculate-correctly
+		tcph = (void *)iph + (iph->ihl << 2); //https://stackoverflow.com/questions/10162556/why-skb-transport-header-does-not-calculate-correctly
 		if(!tcph){
 			printk(KERN_INFO "failed at tcph\n");
 			res->action = NF_DROP;
@@ -700,6 +700,8 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 
 			kfree(conn);
 
+			printk(KERN_INFO "connection is valid");
+
 			res->action = NF_ACCEPT;
 			res->reason = REASON_VALID_CONNECTION;
 			return res;
@@ -754,6 +756,8 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 					return res;
 				}
 
+				printk(KERN_INFO "syn connection added successfully");
+
 				res->action = NF_ACCEPT;
 				//res->action = NF_DROP;
 				res->reason = REASON_VALID_CONNECTION;
@@ -801,6 +805,8 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 					res->reason = REASON_ILLEGAL_VALUE;
 					return res;	
 				}
+
+				printk(KERN_INFO "syn connection added successfully");
 
 				res->action = NF_ACCEPT;
 				res->reason = rule_num;

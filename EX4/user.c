@@ -6,7 +6,8 @@
 
 #define SUCCESS			 0
 #define ERROR 			-1
-#define MAX_RULE_STRING_SIZE 90
+#define MAX_RULE_STRING_SIZE 110
+#define MAX_CONN_STR_SIZE	65 //19*2 + 5*2 + 2 + 4 + 1 (+10)
 #define MAX_RULES		(50)
 #define DEVICE_NAME_RULES			"rules"
 #define DEVICE_NAME_LOG				"log"
@@ -18,6 +19,7 @@ void activate(int p);
 int parse_load_rules(char* path);
 void show_log(void);
 void show_rules(void);
+void show_conn_table(void);
 
 int main(int argc,char* argv[]){
 	char* command;
@@ -58,6 +60,9 @@ int main(int argc,char* argv[]){
 			sprintf(command,"echo c > /sys/class/%s/%s_%s/log_clear",CLASS_NAME,CLASS_NAME,DEVICE_NAME_LOG);
 			system(command);
 			free(command);
+		}
+		else if(strcmp(argv[1],"show_connection_table") == 0){
+			show_conn_table();
 		}
 		else{
 			printf("Invalid command\n");
@@ -212,6 +217,75 @@ void show_rules(void){
 			return;
 		}
 
+		printf("%s\n",buf);
+
+		close(fd);
+	}	
+}
+
+
+void show_conn_table(void){
+	int fd;
+	int _fd;
+	char buf[MAX_CONN_STR_SIZE];
+	int check;
+	unsigned int cur_conn;
+	unsigned int num_conns = 0;
+	char num_string[10] = {0}; //assuming TABLE_SIZE is integer
+	
+	_fd = open("/sys/class/fw/fw_conn_tab/show_conn_table_size",O_RDONLY); 
+	if(_fd < 0){
+		perror("Error opening file,exiting.. :");
+		return;
+	}
+
+	if(read(_fd,&buf,sizeof(unsigned long)) < 0){
+		perror("Error reading from file, exiting..");
+		close(_fd);
+		return;
+	}
+
+	close(_fd);
+
+	num_conns = atoi(buf);
+	if(num_conns == 0) //it can never be 0, thus it implies atoi has failed
+	{
+		printf("Connection table is empty\n");
+		return;	
+	}
+
+	
+
+	printf("table size %u\n",num_conns);
+
+	for(cur_conn = 0;cur_conn < num_conns;cur_conn++){
+		memset(buf,0,MAX_CONN_STR_SIZE);
+		memset(num_string,0,10);
+
+		fd = open("/sys/class/fw/fw_conn_tab/show_conn_table",O_RDWR);
+
+		if(fd < 0){
+			perror("Error opening file,exiting.. :");
+			return;
+		}
+
+		sprintf(num_string,"%u\n",cur_conn);
+
+		if(write(fd,num_string,strlen(num_string)) < 0){
+			perror("Error writing file, exiting..");
+			close(fd);
+			return;
+		}
+
+		//printf("wrote conn num %u\n",cur_conn);
+
+		if((check = read(fd,buf,MAX_CONN_STR_SIZE)) < 0){
+			printf("Connection table is empty");	
+			close(fd);
+			return;
+		}
+
+		//if(strcmp(buf,"ERROR")) 
 		printf("%s\n",buf);
 
 		close(fd);

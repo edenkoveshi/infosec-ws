@@ -10,6 +10,7 @@ MODULE_AUTHOR("Eden Koveshi");
 static struct class* sysfs_class = NULL;	// The device's class
 static struct device* rules_device = NULL;	// The device's name
 static struct device* log_device = NULL;
+static struct device* conn_tab_device = NULL;
 static DEFINE_SPINLOCK(xxx_lock);
 
 struct file_operations log_fops =
@@ -139,14 +140,13 @@ unsigned int hook_func(unsigned int hooknum,
 	kfree(result);
 
 	if(action == NF_ACCEPT){//} && ((hooknum == NF_INET_PRE_ROUTING && dir = DIRECTION_IN) || (hooknum = NF_INET_LOCAL_OUT && dir = DIRECTION_OUT)){
-		if(skb_network_header(skb) == NULL){
+		/*if(skb_network_header(skb) == NULL){
 			printk(KERN_INFO "skb_network_header is null\n");
 			return action;
-		}
-		iph = (struct iphdr*)(skb_network_header(skb)); //construct ip header of hooked pkt
+		}*/
+		iph = ip_hdr(skb);; //construct ip header of hooked pkt
 		if(iph){
-			//printk(KERN_INFO "HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE\n");
-			tcph = (struct tcphdr *)(skb_transport_header(skb)+20);
+			tcph = (void *)iph + (iph->ihl << 2);
 			if (tcph){
 				redirect_in(skb);
 			}
@@ -190,7 +190,7 @@ void redirect_in(struct sk_buff* skb){
 	}
 
 	printk(KERN_INFO "@@@@@@@@@@@@@starting redirect in@@@@@@@@@@@@");
-	printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+	printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u, syn:%u, ack:%u, fin:%u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest),tcph->syn,tcph->ack,tcph->fin);
 	printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 	
 	if (tcph->dest == htons(80) && iph->daddr == htonl(HOST2_OUT_IP)) //client to HTTP server. redirect to local proxy
@@ -252,7 +252,7 @@ void redirect_in(struct sk_buff* skb){
 	    
 
     	printk(KERN_INFO "@@@@@@@@@@@@@ending redirect in@@@@@@@@@@@@@@");
-		printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+		printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u, syn:%u, ack:%u, fin:%u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest),tcph->syn,tcph->ack,tcph->fin);
 		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 	}
 	return;
@@ -291,7 +291,7 @@ void redirect_out(struct sk_buff *skb){
     
 
 	printk(KERN_INFO "@@@@@@@@@@@@@starting redirect out@@@@@@@@@@@");
-	printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+	printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u, syn:%u, ack:%u, fin:%u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest),tcph->syn,tcph->ack,tcph->fin);
 	printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 
 
@@ -355,7 +355,7 @@ void redirect_out(struct sk_buff *skb){
 
 	    iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
 	    printk(KERN_INFO "@@@@@@@@@@@@@ending redirect out@@@@@@@@@@@@@");
-		printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+		printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u, syn:%u, ack:%u, fin:%u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest),tcph->syn,tcph->ack,tcph->fin);
 		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 	}
 	return;
@@ -371,7 +371,7 @@ unsigned int hook_func_local_in(unsigned int hooknum,
 	struct iphdr *iph;
 	unsigned int sip,dip;
 	if(skb != NULL){ //error check
-		iph = (struct iphdr *)skb_network_header(skb);
+		iph = ip_hdr(skb);;
 		if(!iph){
 			return NF_DROP;
 		}
@@ -401,10 +401,10 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 	struct tcphdr *tcph;
 	//unsigned short int sport, dport;
 	int sip, dip;
-	//decision_t* d;
+	decision_t* d;
 	if(skb != NULL){ //error check
 
-		iph = (struct iphdr *)skb_network_header(skb);
+		iph = ip_hdr(skb);;
 		if(!iph){ //not ip packet
 			return NF_ACCEPT;
 		}
@@ -420,9 +420,11 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 		}
 		if (dip == HOST1_OUT_IP || dip == HOST2_OUT_IP){ //proxy
 			if (iph->protocol==IPPROTO_TCP){ //TCP
-				//d = inspect_pkt(skb,DIRECTION_OUT);
-				//redirect_out(skb);
-				return NF_ACCEPT;
+				redirect_out(skb);
+				d = inspect_pkt(skb,DIRECTION_OUT);
+				if(d==NULL) return NF_DROP;
+				return d->action;
+				//return NF_ACCEPT;
 			}
 		}
 	}
@@ -440,6 +442,8 @@ static DEVICE_ATTR(rules_size, S_IROTH , size_show, NULL);
 static DEVICE_ATTR(add_rule,S_IWOTH, NULL, rule_store);
 static DEVICE_ATTR(clear_rules,S_IWOTH, NULL, clear_rules_store);
 static DEVICE_ATTR(show_rules,S_IROTH | S_IWOTH,get_rule,set_cur_rule);
+static DEVICE_ATTR(show_conn_table,S_IROTH | S_IWOTH, show_conn, set_conn);
+static DEVICE_ATTR(show_conn_table_size,S_IROTH , show_conn_tab_size, NULL);
 
 static char *log_devnode(struct device *dev, umode_t *mode) //https://stackoverflow.com/questions/11846594/how-can-i-programmatically-set-permissions-on-my-char-device
 {
@@ -486,10 +490,22 @@ static int __init fw_init(void){
 		return -1;
 	}
 
+	conn_tab_device = device_create(sysfs_class, NULL, MKDEV(MAJOR_NUM, MINOR_CONN_TAB), NULL, CLASS_NAME "_" DEVICE_NAME_CONN_TAB);
+
+	if (IS_ERR(conn_tab_device))
+	{
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		class_destroy(sysfs_class);
+		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
+		return -1;
+	}
+
 	if (device_create_file(rules_device, (const struct device_attribute *)&dev_attr_active.attr))
 	{
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 		class_destroy(sysfs_class);
 		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
 		return -1;
@@ -500,6 +516,7 @@ static int __init fw_init(void){
 		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_active.attr);
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 		class_destroy(sysfs_class);
 		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
 		return -1;
@@ -511,6 +528,7 @@ static int __init fw_init(void){
 		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules_size.attr);
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 		class_destroy(sysfs_class);
 		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
 		return -1;
@@ -523,6 +541,7 @@ static int __init fw_init(void){
 		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_add_rule.attr);
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 		class_destroy(sysfs_class);
 		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
 		return -1;
@@ -536,6 +555,7 @@ static int __init fw_init(void){
 		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_clear_rules.attr);
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 		class_destroy(sysfs_class);
 		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
 		return -1;
@@ -550,6 +570,7 @@ static int __init fw_init(void){
 		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_clear_rules.attr);
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 		class_destroy(sysfs_class);
 		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
 		return -1;
@@ -565,6 +586,42 @@ static int __init fw_init(void){
 		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_clear_rules.attr);
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
+		class_destroy(sysfs_class);
+		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
+		return -1;
+	}
+
+	if (device_create_file(conn_tab_device, (const struct device_attribute *)&dev_attr_show_conn_table.attr))
+	{
+		device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_clear.attr);
+		device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_size.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_active.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules_size.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_add_rule.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_clear_rules.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_show_rules.attr);
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
+		class_destroy(sysfs_class);
+		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
+		return -1;
+	}
+
+	if (device_create_file(conn_tab_device, (const struct device_attribute *)&dev_attr_show_conn_table_size.attr))
+	{
+		device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_clear.attr);
+		device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_size.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_active.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules_size.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_add_rule.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_clear_rules.attr);
+		device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_show_rules.attr);
+		device_remove_file(conn_tab_device, (const struct device_attribute *)&dev_attr_show_conn_table.attr);
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
+		device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 		class_destroy(sysfs_class);
 		unregister_chrdev(MAJOR_NUM, MODULE_NAME);
 		return -1;
@@ -596,6 +653,9 @@ static void __exit fw_exit(void){
 	device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_add_rule.attr);
 	device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_clear_rules.attr);
 	device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_show_rules.attr);
+	device_remove_file(conn_tab_device, (const struct device_attribute *)&dev_attr_show_conn_table.attr);
+	device_remove_file(conn_tab_device, (const struct device_attribute *)&dev_attr_show_conn_table_size.attr);
+	device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_CONN_TAB));
 	device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_RULES));
 	device_destroy(sysfs_class, MKDEV(MAJOR_NUM, MINOR_LOG));
 	class_destroy(sysfs_class);

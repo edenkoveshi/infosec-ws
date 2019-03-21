@@ -2,6 +2,8 @@
 
 
 static conn_list_t* table[TABLE_SIZE];
+static int cur_conn_num = 0;
+static int num_conns = 0;
 
 
 unsigned int joaat_hash(unsigned char *key, size_t len) //https://en.wikibooks.org/wiki/Data_Structures/Hash_Tables
@@ -89,10 +91,10 @@ conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
       return NULL;
     }
 
-    else if(res->conn == NULL){
+    /*else if(res->conn == NULL){
       printk(KERN_INFO "res_conn is null\n");
       return NULL;
-    }
+    }*/
 
 
     if(compare_func(res->conn,conn) == SUCCESS){ //MATCH
@@ -129,6 +131,7 @@ void remove_conn_from_table(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
     if(res->conn != NULL && compare_func(res->conn,conn) == SUCCESS){ //MATCH
       destroy_conn_node(res,prev);
       printk(KERN_INFO "successfully removed from connection table");
+      num_conns--;
       return;
     }
     res = res->next;
@@ -151,17 +154,18 @@ int update_table(conn_t* new,conn_t* conn_in_table,conn_t* rev){
         rev->state = TCP_CONN_ESTABLISHED;
         return SUCCESS;
       }
-      else if(rev->state == TCP_FIN && conn_in_table->state == TCP_FIN){ //final ack
+      /*else if(rev->state == TCP_FIN && conn_in_table->state == TCP_FIN){ //final ack
           remove_conn_from_table(conn_in_table,compare_conn);
           remove_conn_from_table(rev,compare_conn);
           return SUCCESS;
       }
 
-      else if(rev->state == TCP_FIN) return SUCCESS;
+      else if(rev->state == TCP_FIN) return SUCCESS;*/
       break;
     case TCP_FIN:
-      if(conn_in_table->state == TCP_FIN) return ERROR; //can't send packets
-      conn_in_table->state = TCP_FIN;
+      //if(conn_in_table->state == TCP_FIN) return ERROR; //can't send packets
+      remove_conn_from_table(conn_in_table,compare_conn);
+      remove_conn_from_table(rev,compare_conn);
       return SUCCESS;
       break;
     default: //should not reach syn or syn ack
@@ -226,10 +230,73 @@ int add_connection(conn_t* conn){
       return ERROR;
     }
   }
+  num_conns++;
   return SUCCESS; 
 }
 
-/*ssize_t table_show(struct device *dev, struct device_attribute *attr, char *buf) //sysfs show implementation
+ssize_t show_conn(struct device *dev, struct device_attribute *attr, char *buf) //sysfs show implementation
 {
-  return scnprintf(buf, 1,"%u\n",1);
-}*/
+  int i = 0;
+  int j = 0;
+  conn_list_t* list;
+  conn_list_t* prev = NULL;
+  char conn_str[MAX_CONN_STR_SIZE];
+  conn_t* conn;
+  char* src_ip;
+  char* dst_ip;
+  while(i < TABLE_SIZE && j < cur_conn_num + 1){
+    printk(KERN_INFO "here, i=%u,j=%u",i,j);
+    if(table[i] != NULL){
+      list = table[i];
+      while(list != NULL && j < cur_conn_num + 1){
+        prev = list;
+        j++;
+        list = list->next;
+      }
+    }
+    i++;
+  }
+
+  if(!prev){
+    return scnprintf(buf,10,"%s","ERROR");
+  }
+  conn = prev->conn;
+
+  if(!conn){
+    return scnprintf(buf,10,"%s","ERROR");
+  }
+
+  src_ip = kmalloc(19,GFP_ATOMIC);
+  dst_ip = kmalloc(19,GFP_ATOMIC);
+
+  if(ip_to_string(conn->src_ip,src_ip) == ERROR){
+      kfree(src_ip);
+      kfree(dst_ip);
+      return scnprintf(buf,5,"%s","ERROR");
+  }
+
+  if(ip_to_string(conn->dst_ip,dst_ip) == ERROR){
+      kfree(src_ip);
+      kfree(dst_ip);
+      return scnprintf(buf,5,"%s","ERROR");
+  }
+
+  snprintf(conn_str,MAX_CONN_STR_SIZE,"%s %u %s %u %u",src_ip,conn->src_port,dst_ip,conn->dst_port,conn->state);
+  return scnprintf(buf,MAX_CONN_STR_SIZE,"%s",conn_str);
+
+
+}
+
+ssize_t set_conn(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)  //sysfs store implementation
+{
+
+  int temp;
+  int i = sscanf(buf, "%u", &temp);
+  if(temp < TABLE_SIZE) cur_conn_num = temp;
+  return count;
+}
+
+ssize_t show_conn_tab_size(struct device *dev, struct device_attribute *attr, char *buf) //sysfs show implementation
+{
+  return scnprintf(buf,10,"%u\n",num_conns);
+} 

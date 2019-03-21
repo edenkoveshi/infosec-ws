@@ -36,6 +36,7 @@ void destroy_conn_node(conn_list_t* toRemove, conn_list_t* prev){
 	/*if(list->conn != NULL) kfree(list->conn);
 	kfree(list);*/
 	if(toRemove != NULL){
+		
 		if(prev != NULL){
 			if(toRemove->next != NULL){
 				prev->next = toRemove->next;
@@ -44,6 +45,7 @@ void destroy_conn_node(conn_list_t* toRemove, conn_list_t* prev){
 				prev->next = NULL;
 			}
 		}
+
 		if(toRemove->conn != NULL) kfree(toRemove->conn);
 		kfree(toRemove);
 	}

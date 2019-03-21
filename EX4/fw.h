@@ -55,6 +55,7 @@ typedef enum {
 #define SUCCESS			 0
 #define ERROR 			-1
 #define MAX_RULE_STRING_SIZE 110
+#define MAX_CONN_STR_SIZE	65 //19*2 + 5*2 + 2 + 4 + 1 (+10)
 #define HOST1_OUT_IP 		0x0a000101 //10.0.1.1
 #define HOST2_OUT_IP 		0x0a000202 //10.0.2.2
 #define HOST1_IN_IP 		0x0a000103 //10.0.1.3
@@ -67,6 +68,7 @@ typedef enum {
 typedef enum {
 	MINOR_RULES    = 0,
 	MINOR_LOG      = 1,
+	MINOR_CONN_TAB = 2,
 } minor_t;
 
 typedef enum {
