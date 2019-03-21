@@ -16,7 +16,6 @@ from threading import *
 # But when buffer get to high or delay go too down, you can broke things
 buffer_size = 4096
 delay = 0.0001
-#forward_to_http = ('10.0.2.2', 80)
 
 class Forward:
 	def __init__(self):
@@ -208,7 +207,7 @@ class TheServer:
 
 if __name__ == '__main__':
 		http_server = TheServer('0.0.0.0', 8080,80)
-		ftp_server = TheServer('0.0.0.0', 2121,21)
+		ftp_server = TheServer('0.0.0.0', 2021,21)
 		t1 = Thread(target=http_server.main_loop, name="HTTP PROXY")	
 		t2 = Thread(target=ftp_server.main_loop, name="FTP PROXY")
 		

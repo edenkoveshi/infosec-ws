@@ -690,13 +690,13 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 				return res;
 			}
 
-			/*if(update_table(conn,lookup_conn,lookup_rev_conn) == ERROR){ //this also checks if state is valid
+			if(update_table(conn,lookup_conn,lookup_rev_conn) == ERROR){ //this also checks if state is valid
 				printk(KERN_INFO "failed at update_table\n");
 				kfree(conn);
 				res->action = NF_DROP;
 				res->reason = REASON_ILLEGAL_VALUE;
 				return res;
-			}*/
+			}
 
 			kfree(conn);
 
@@ -746,13 +746,13 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 					return res;	
 				}
 
-				/*if(add_connection(conn) == ERROR){
+				if(add_connection(conn) == ERROR){
 					printk(KERN_INFO "failed at add_conncetion\n");
 					kfree(conn);
 					res->action = NF_DROP;
 					res->reason = REASON_ILLEGAL_VALUE;
 					return res;
-				}*/
+				}
 
 				res->action = NF_ACCEPT;
 				//res->action = NF_DROP;
@@ -786,7 +786,7 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 					return res;
 				}
 
-				else if(assign_state(conn,TCP_HANDSHAKE_SYN) == ERROR){ //syn without ack
+				if(assign_state(conn,TCP_HANDSHAKE_SYN) == ERROR){ //syn without ack
 					printk(KERN_INFO "failed at assign_state 2\n");
 					kfree(conn);
 					res->action = NF_DROP;

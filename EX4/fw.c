@@ -148,7 +148,7 @@ unsigned int hook_func(unsigned int hooknum,
 			//printk(KERN_INFO "HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE\n");
 			tcph = (struct tcphdr *)(skb_transport_header(skb)+20);
 			if (tcph){
-				redirect_in(skb,iph,tcph);
+				redirect_in(skb);
 			}
 		}
 	}
@@ -159,20 +159,40 @@ unsigned int hook_func(unsigned int hooknum,
 	//return NF_ACCEPT;
 }
 
-void redirect_in(struct sk_buff* skb,struct iphdr* iph,struct tcphdr* tcph){
+void redirect_in(struct sk_buff* skb){
 	int tcplen;
 	int check = 0;
+	struct iphdr *iph;
+	struct tcphdr *tcph;
+
+	if(!skb){
+		printk(KERN_INFO "skb is null\n");
+		return;	
+	}
+
+	if (skb_linearize(skb) != 0) {
+		printk(KERN_INFO "skb linearize failed\n");
+        return;
+    }
+
+    iph = ip_hdr(skb);
+
+    if(!iph){
+		printk(KERN_INFO "iph is null");
+		return;
+	}
+
+    tcph = (void *)iph + (iph->ihl << 2);
+    
 	if(!tcph){
 		printk(KERN_INFO "tcph is null");
 		return;
 	}
-	if(!iph){
-		printk(KERN_INFO "iph is null");
-		return;
-	}
-	if(!skb){
-		printk(KERN_INFO "skb is null\n");
-		return;	}
+
+	printk(KERN_INFO "@@@@@@@@@@@@@starting redirect in@@@@@@@@@@@@");
+	printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+	printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+	
 	if (tcph->dest == htons(80) && iph->daddr == htonl(HOST2_OUT_IP)) //client to HTTP server. redirect to local proxy
 	{	
 		iph->daddr = htonl(HOST1_IN_IP);   //10.0.1.3
@@ -215,10 +235,10 @@ void redirect_in(struct sk_buff* skb,struct iphdr* iph,struct tcphdr* tcph){
 	if(check){
 		tcplen = skb->len - ip_hdrlen(skb);
 	    tcph->check=0;
-	    if(csum_partial((char*)tcph,tcplen,0) == NULL){
+	    /*if(csum_partial((char*)tcph,tcplen,0) == NULL){
 	    	printk(KERN_INFO "csum_partial is null\n");
 	    	return;
-	    }
+	    }*/
 
 	    tcph->check = tcp_v4_check(tcplen, iph->saddr, iph->daddr,csum_partial((char*)tcph, tcplen,0));
 	    skb->ip_summed = CHECKSUM_NONE;
@@ -229,7 +249,11 @@ void redirect_in(struct sk_buff* skb,struct iphdr* iph,struct tcphdr* tcph){
 	    }*/
 
 	    iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
-	    printk(KERN_INFO "Redirect in new packet\n");
+	    
+
+    	printk(KERN_INFO "@@@@@@@@@@@@@ending redirect in@@@@@@@@@@@@@@");
+		printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 	}
 	return;
 }
@@ -237,33 +261,40 @@ void redirect_in(struct sk_buff* skb,struct iphdr* iph,struct tcphdr* tcph){
 void redirect_out(struct sk_buff *skb){
 	//https://stackoverflow.com/questions/16610989/calculating-tcp-checksum-in-a-netfilter-module
 	int tcplen;
-	struct iphdr *iph;  // ip header struct
-	struct tcphdr *tcph;     // tcp header struct
+	struct iphdr *iph;
+	struct tcphdr *tcph;
 	int check = 0;
+
 	if(!skb){
 		printk(KERN_INFO "skb is null\n");
-		return;
+		return;	
 	}
 
 	if (skb_linearize(skb) != 0) {
-		printk(KERN_INFO "skb linearize failed!\n");
+		printk(KERN_INFO "skb linearize failed\n");
         return;
     }
 
-    
-	iph = (struct iphdr*)skb_network_header(skb); //construct ip header of hooked pkt
-	if(!iph){
-		printk(KERN_INFO "failed at iph\n");
-	 	return;
+    iph = ip_hdr(skb);
+
+    if(!iph){
+		printk(KERN_INFO "iph is null");
+		return;
 	}
 
-    tcph = (struct tcphdr *)(skb_transport_header(skb)+20);
-
-    if(!tcph){
-    	printk(KERN_INFO "failed at tcph\n");
-    	return;
-    }
+    tcph = (void *)iph + (iph->ihl << 2);
     
+	if(!tcph){
+		printk(KERN_INFO "tcph is null");
+		return;
+	}
+    
+
+	printk(KERN_INFO "@@@@@@@@@@@@@starting redirect out@@@@@@@@@@@");
+	printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+	printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+
+
 	if (tcph->dest == htons(80) && iph->saddr == htonl(HOST2_IN_IP)) //local proxy to http server. change source ip to be that of the client.
 	{			
 		//change source ip
@@ -295,29 +326,37 @@ void redirect_out(struct sk_buff *skb){
 	if (tcph->dest == htons(20) && iph->saddr == htonl(HOST2_IN_IP)) //local proxy to FTP-DATA server. change source ip to be that of the client.
 	{			
 		//change source ip
-		iph->saddr = htonl(HOST1_OUT_IP);	  //10.1.1.1
+		iph->saddr = htonl(HOST1_OUT_IP);	  //10.0.1.1
 		check = 1;
 	}
 	if (tcph->source == htons(20) && iph->daddr == htonl(HOST1_OUT_IP)) //local proxy to FTP-DATA client. change source ip and port to be that of the server.
 	{			
 		//change source ip
-		iph->saddr = htonl(HOST2_OUT_IP);	  //10.1.2.2
+		iph->saddr = htonl(HOST2_OUT_IP);	  //10.0.2.2
 		check = 1;
 	}
 	
 	//here starts the checksum fix for both IP and TCP
 	if(check){
-		tcplen = skb->len - ip_hdrlen(iph);
-	    tcph->check = 0;
-	    if(csum_partial((char*)tcph,tcplen,0) == NULL){
+		tcplen = skb->len - ip_hdrlen(skb);
+	    tcph->check=0;
+	    /*if(csum_partial((char*)tcph,tcplen,0) == NULL){
 	    	printk(KERN_INFO "csum_partial is null\n");
 	    	return;
-	    }
+	    }*/
+
 	    tcph->check = tcp_v4_check(tcplen, iph->saddr, iph->daddr,csum_partial((char*)tcph, tcplen,0));
-	    skb->ip_summed = CHECKSUM_NONE; //stop offloading
+	    skb->ip_summed = CHECKSUM_NONE;
 	    iph->check = 0;
+	    /*if(ip_fast_csum((u8 *)iph, iph->ihl) == NULL){
+	    	printk(KERN_INFO "fast csum failed\n");
+	    	return;
+	    }*/
+
 	    iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
-	    printk(KERN_INFO "Redirect out new packet,src ip:%u,dst ip:%u,src port:%u.dst port: %u\n",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+	    printk(KERN_INFO "@@@@@@@@@@@@@ending redirect out@@@@@@@@@@@@@");
+		printk(KERN_INFO "src ip: %u, dst ip:%u, src port:%u, dst port: %u",ntohl(iph->saddr),ntohl(iph->daddr),ntohs(tcph->source),ntohs(tcph->dest));
+		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 	}
 	return;
 }
@@ -341,14 +380,14 @@ unsigned int hook_func_local_in(unsigned int hooknum,
 		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 		printk(KERN_INFO "Local In Packet: sip = %u.dip = %u",sip,dip);
 		printk(KERN_INFO "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-		if (IS_LOCALHOST(sip) && IS_LOCALHOST(dip)){ // 127.0.0.0<=sip,dip<=127.255.255.255
+		if (IS_LOCALHOST(sip) && IS_LOCALHOST(dip)){
 			return NF_ACCEPT;
 		}
-		if (dip == HOST1_IN_IP || dip == HOST2_IN_IP){ //10.0.1.3 or 10.0.2.3(proxy)
+		if (dip == HOST1_IN_IP || dip == HOST2_IN_IP){ //proxy
 			return NF_ACCEPT;
 		}
 	}
-	printk(KERN_INFO "Drooping Local iN Packet\n");
+	printk(KERN_INFO "Dropping Local In Packet\n");
 	return NF_DROP;
 }
 
@@ -358,12 +397,12 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 								const struct net_device *out, 
 								int (*okfn)(struct sk_buff *))
 {
+	struct iphdr *iph; 
+	struct tcphdr *tcph;
+	//unsigned short int sport, dport;
+	int sip, dip;
+	//decision_t* d;
 	if(skb != NULL){ //error check
-		struct iphdr *iph; 
-		struct tcphdr *tcph;
-		//unsigned short int sport, dport;
-		int sip, dip;
-		//decision_t* d;
 
 		iph = (struct iphdr *)skb_network_header(skb);
 		if(!iph){ //not ip packet
@@ -380,11 +419,11 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 			return NF_ACCEPT;
 		}
 		if (dip == HOST1_OUT_IP || dip == HOST2_OUT_IP){ //proxy
-			//if (iph->protocol==IPPROTO_TCP){ //TCP
+			if (iph->protocol==IPPROTO_TCP){ //TCP
 				//d = inspect_pkt(skb,DIRECTION_OUT);
-				redirect_out(skb);
+				//redirect_out(skb);
 				return NF_ACCEPT;
-			//}
+			}
 		}
 	}
 	//skb is null or protocol is not ipv4

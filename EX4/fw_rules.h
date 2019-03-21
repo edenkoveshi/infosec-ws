@@ -26,7 +26,7 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 								int (*okfn)(struct sk_buff *));
 
 void redirect_out(struct sk_buff *skb);
-void redirect_in(struct sk_buff *skb,struct iphdr* iph,struct tcphdr* tcph);
+void redirect_in(struct sk_buff *skb);
 
 int compare_to_rule(struct sk_buff* skb,rule_t* rule,direction_t dir);
 

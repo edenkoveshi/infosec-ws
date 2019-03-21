@@ -34,15 +34,15 @@ void clean_conn_table(void){
   conn_list_t* list;
   conn_list_t* _list;
   if(table == NULL) return;
-  while((table+i) !=NULL && *(table + i) != NULL){
-    list = *(table + i);
+  while(table[i] != NULL){
+    list = table[i];
     while(list != NULL){
       _list = list;
       list = list->next;
       kfree(_list);
     }
-    kfree(table + i);
-  }    
+  }
+  kfree(table);   
 }
 
 conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
@@ -157,7 +157,7 @@ int update_table(conn_t* new,conn_t* conn_in_table,conn_t* rev){
           return SUCCESS;
       }
 
-      //else if(rev->state == TCP_FIN) return SUCCESS;
+      else if(rev->state == TCP_FIN) return SUCCESS;
       break;
     case TCP_FIN:
       if(conn_in_table->state == TCP_FIN) return ERROR; //can't send packets
