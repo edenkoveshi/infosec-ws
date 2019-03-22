@@ -24,11 +24,13 @@ conn_t* init_conn(__be32 src_ip,__be16 src_port,__be32 dst_ip,__be16 dst_port){
 
 conn_list_t* init_conn_node(conn_t* conn){
 	conn_list_t* list;
+	printk(KERN_INFO "in init_conn_node");
 	if(!conn) return NULL;
 	list = kmalloc(sizeof(conn_list_t),GFP_ATOMIC);
 	if(!list) return NULL;
 	list->next = NULL;
 	list->conn = conn;
+	printk(KERN_INFO "finished init_conn_node");
 	return list;
 }
 
@@ -52,11 +54,13 @@ void destroy_conn_node(conn_list_t* toRemove, conn_list_t* prev){
 }
 
 int add_after_conn_node(conn_list_t* list,conn_t* new){
-	conn_list_t* c;
+	printk(KERN_INFO "in add_after_conn_node");
 	if(!list) return ERROR;
 	if(!new) return ERROR;
 	list->next = init_conn_node(new);
+	if(!list) return ERROR;
 	if(!list->next) return ERROR;
+	printk(KERN_INFO "finished add_after_conn_node");
 	return SUCCESS;
 }
 

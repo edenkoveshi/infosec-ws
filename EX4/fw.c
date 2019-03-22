@@ -645,7 +645,7 @@ static void __exit fw_exit(void){
 	nf_unregister_hook(&forwarded_pkt_ops);
 	clear_logs();
 	clear_rules();
-	clean_conn_table();
+	//clean_conn_table();
 	device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_clear.attr);
 	device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_size.attr);
 	device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_active.attr);

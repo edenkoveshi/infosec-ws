@@ -16,6 +16,12 @@ from threading import *
 # But when buffer get to high or delay go too down, you can broke things
 buffer_size = 4096
 delay = 0.0001
+ALLOWED_LENGTH = 2000
+MAGIC = "\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" #https://en.wikipedia.org/wiki/List_of_file_signatures
+MAGIC_OFFSET = 0
+HTTP_PORT = 8080
+FTP_PORT = 2021
+HOST_2 = '10.0.2.2'
 
 class Forward:
 	def __init__(self):
@@ -141,7 +147,7 @@ class TheServer:
 					break
 
 	def on_accept(self):
-		forward = Forward().start('10.0.2.2', self.forwardPort)
+		forward = Forward().start(HOST_2, self.forwardPort)
 		clientsock, clientaddr = self.server.accept()
 		if forward:
 			print clientaddr, "has connected"
@@ -179,10 +185,13 @@ class TheServer:
 					else:
 						con_len = int(data[data.find("Content-Length:") + len("Content-Length:") + 1:].partition("\x0a")[0])
 					print "Got HTTP content length: %d" % con_len
-					if(con_len > 5000): #close the connection if more than 5000 bytes
-						self.on_close()
-						print data
-						return
+					if(con_len > ALLOWED_LENGTH): #unallowed length
+						body = data.split('\r\n\r\n')[1]
+						if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected
+							self.on_close()
+							#print data
+							print body
+							return
 				else: #header doesn't exist, close the connection.
 					self.on_close()
 					print data
@@ -206,8 +215,8 @@ class TheServer:
 		self.channel[self.s].send(data)
 
 if __name__ == '__main__':
-		http_server = TheServer('0.0.0.0', 8080,80)
-		ftp_server = TheServer('0.0.0.0', 2021,21)
+		http_server = TheServer('0.0.0.0',HTTP_PORT,80)
+		ftp_server = TheServer('0.0.0.0', FTP_PORT,21)
 		t1 = Thread(target=http_server.main_loop, name="HTTP PROXY")	
 		t2 = Thread(target=ftp_server.main_loop, name="FTP PROXY")
 		

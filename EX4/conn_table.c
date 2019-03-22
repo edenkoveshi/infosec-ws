@@ -37,36 +37,31 @@ void clean_conn_table(void){
   conn_list_t* _list;
   if(table == NULL) return;
   while(table[i] != NULL){
+    printk(KERN_INFO"clearing conn %d",i);
     list = table[i];
-    while(list != NULL){
-      _list = list;
-      list = list->next;
-      kfree(_list);
-    }
+    remove_conn_from_table(list,compare_conn);
+    printk(KERN_INFO"cleared conn %d",i);
+    i++;
   }
   kfree(table);   
 }
 
 conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
-  unsigned char* key;
-  unsigned int idx;
+  int idx;
   conn_list_t* res;
   conn_list_t* temp;
   int i = 0;
 
   if(!conn || !compare_func || !table) return NULL;
 
-  key = kmalloc(5*2 + 10*2,GFP_ATOMIC); //ip*2 and port*2
-  if(!key) return NULL;
-  snprintf(key,5*2+10*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
-  idx = joaat_hash(key,strlen(key));
-  kfree(key);
+  idx = compute_idx(conn);
+  if(idx == ERROR) return ERROR;
   //idx = joaat_hashs("23554645454",strlen("23554645454"));
 
   res = table[idx];
   //printk(KERN_INFO "checking if res is null,idx is %u\n",idx);
   if(res == NULL){
-    printk("res is null");
+    printk(KERN_INFO "res is null");
     return NULL;
   }
 
@@ -86,10 +81,10 @@ conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
 
     //printk(KERN_INFO "found %u,%u,%u,%u\n",res->conn->src_ip,res->conn->dst_ip,res->conn->src_port,res->conn->dst_port);
 
-    if(res == NULL){
+    /*if(res == NULL){
       printk(KERN_INFO "res is null\n");
       return NULL;
-    }
+    }*/
 
     /*else if(res->conn == NULL){
       printk(KERN_INFO "res_conn is null\n");
@@ -109,21 +104,17 @@ conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
   return NULL;
 }
 
-void remove_conn_from_table(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
-  unsigned char* key;
-  unsigned int idx;
+int remove_conn_from_table(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
   conn_list_t* res;
-  conn_list_t* prev;
-  if(!conn || !compare_func) return;
+  conn_list_t* prev = NULL;
+  int idx;
+  if(!conn || !compare_func) return ERROR;
 
-  key = kmalloc(5*2 + 10*2,GFP_ATOMIC); //ip*2 and port*2
-  if(!key) return;
-  snprintf(key,5*2+10*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
-  idx = joaat_hash(key,strlen(key));
-  kfree(key);
+  idx = compute_idx(conn);
+  if(idx == ERROR) return ERROR;
   //idx = joaat_hash("23554645454",strlen("23554645454"));
 
-  if(table[idx] == NULL) return;
+  if(table[idx] == NULL) return ERROR;
 
   res = table[idx];
 
@@ -132,12 +123,14 @@ void remove_conn_from_table(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
       destroy_conn_node(res,prev);
       printk(KERN_INFO "successfully removed from connection table");
       num_conns--;
-      return;
+      return SUCCESS;
     }
-    res = res->next;
     prev = res;
+    res = res->next;
+    
   }
   printk(KERN_INFO "connection to remove was not found in connection table");
+  return ERROR;
 }
 
 
@@ -154,18 +147,18 @@ int update_table(conn_t* new,conn_t* conn_in_table,conn_t* rev){
         rev->state = TCP_CONN_ESTABLISHED;
         return SUCCESS;
       }
-      /*else if(rev->state == TCP_FIN && conn_in_table->state == TCP_FIN){ //final ack
-          remove_conn_from_table(conn_in_table,compare_conn);
-          remove_conn_from_table(rev,compare_conn);
-          return SUCCESS;
+      else if(rev->state == TCP_FIN && conn_in_table->state == TCP_FIN){ //final ack
+          return remove_conn_from_table(conn_in_table,compare_conn) & remove_conn_from_table(rev,compare_conn);
+          //return SUCCESS;
       }
 
-      else if(rev->state == TCP_FIN) return SUCCESS;*/
+      else if(rev->state == TCP_FIN) return SUCCESS;
       break;
     case TCP_FIN:
-      //if(conn_in_table->state == TCP_FIN) return ERROR; //can't send packets
-      remove_conn_from_table(conn_in_table,compare_conn);
-      remove_conn_from_table(rev,compare_conn);
+      if(conn_in_table->state == TCP_FIN) return ERROR; //can't send packets
+      conn_in_table->state = TCP_FIN;
+      /*remove_conn_from_table(conn_in_table,compare_conn);
+      remove_conn_from_table(rev,compare_conn);*/
       return SUCCESS;
       break;
     default: //should not reach syn or syn ack
@@ -178,30 +171,27 @@ int update_table(conn_t* new,conn_t* conn_in_table,conn_t* rev){
 
 
 int add_connection(conn_t* conn){
-  unsigned char* key;
-  unsigned int idx;
+  int idx;
   conn_list_t* res;
+  conn_list_t* prev;
   //conn_list_t** s;
   int i=1;
-  if(!conn || !table) return ERROR;
-  key = kmalloc(5*2 + 10*2,GFP_ATOMIC); //ip*2 and port*2
-  if(!key) return ERROR;
-  snprintf(key,5*2+10*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
-  printk(KERN_INFO "key is %s",key);
-  idx = joaat_hash(key,strlen(key));
+  idx = compute_idx(conn);
   //idx = joaat_hash("23554645454",strlen("23554645454"));
-  kfree(key);
+  if(idx == ERROR) return ERROR;
 
   printk(KERN_INFO "inserting, idx is %d\n",idx);
 
   if(table[idx] == NULL){
-     res = kmalloc(sizeof(conn_list_t),GFP_ATOMIC);
-      if(res == NULL){
+     table[idx] = init_conn_node(conn);
+      if(table[idx] == NULL){
         printk(KERN_INFO "kmalloc failed\n");
         return ERROR;
       }
-      res->conn = conn;
-      table[idx] = res;
+      //res->conn = conn;
+      //table[idx] = res;
+      //table[idx]->next = res->next;
+      //table[idx]->conn = conn;
   }
 
   /*res = table[idx];
@@ -219,17 +209,34 @@ int add_connection(conn_t* conn){
 
   else{
     //res = *s;
+
     res = table[idx];
+    prev = NULL;
     while(res->next != NULL){
       printk(KERN_INFO "found %d nodes",i);
+      prev = res;
       res = res->next;
       i++;
     }
     //res->next = kmalloc(sizeof(conn_list_t),GFP_ATOMIC);
+    printk(KERN_INFO "finished traversing list\n");
+    if(res == NULL){
+      printk(KERN_INFO "res is nll after traversing list\n");
+    }
+
+    if(res->conn == NULL){
+      res->conn = conn;
+      //num_conns++;
+      return SUCCESS;
+    }
+    
     if(add_after_conn_node(res,conn) == ERROR){
       return ERROR;
     }
   }
+
+  printk(KERN_INFO "finished add_connection");
+
   num_conns++;
   return SUCCESS; 
 }
@@ -258,12 +265,12 @@ ssize_t show_conn(struct device *dev, struct device_attribute *attr, char *buf) 
   }
 
   if(!prev){
-    return scnprintf(buf,10,"%s","ERROR");
+    return scnprintf(buf,10,"%s","ERROR1");
   }
   conn = prev->conn;
 
   if(!conn){
-    return scnprintf(buf,10,"%s","ERROR");
+    return scnprintf(buf,1,"%s","\0");
   }
 
   src_ip = kmalloc(19,GFP_ATOMIC);
@@ -272,13 +279,13 @@ ssize_t show_conn(struct device *dev, struct device_attribute *attr, char *buf) 
   if(ip_to_string(conn->src_ip,src_ip) == ERROR){
       kfree(src_ip);
       kfree(dst_ip);
-      return scnprintf(buf,5,"%s","ERROR");
+      return scnprintf(buf,5,"%s","ERROR3");
   }
 
   if(ip_to_string(conn->dst_ip,dst_ip) == ERROR){
       kfree(src_ip);
       kfree(dst_ip);
-      return scnprintf(buf,5,"%s","ERROR");
+      return scnprintf(buf,5,"%s","ERROR4");
   }
 
   snprintf(conn_str,MAX_CONN_STR_SIZE,"%s %u %s %u %u",src_ip,conn->src_port,dst_ip,conn->dst_port,conn->state);
@@ -299,4 +306,17 @@ ssize_t set_conn(struct device *dev, struct device_attribute *attr, const char *
 ssize_t show_conn_tab_size(struct device *dev, struct device_attribute *attr, char *buf) //sysfs show implementation
 {
   return scnprintf(buf,10,"%u\n",num_conns);
-} 
+}
+
+
+int compute_idx(conn_t* conn){
+  unsigned char* key;
+  unsigned int idx;
+  if(!conn) return ERROR;
+  key = kmalloc(5*2 + 10*2,GFP_ATOMIC); //ip*2 and port*2
+  if(!key) return ERROR;
+  snprintf(key,5*2+10*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
+  idx = joaat_hash(key,strlen(key));
+  kfree(key);
+  return idx;
+}

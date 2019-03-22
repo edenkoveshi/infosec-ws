@@ -720,6 +720,8 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 					return res;
 				}
 
+				printk(KERN_INFO "rev_conn is %u %u %u %u",rev_conn->src_ip,rev_conn->dst_ip,rev_conn->src_port,rev_conn->dst_port);
+
 				lookup_rev_conn = lookup(rev_conn,compare_conn);
 				kfree(rev_conn);
 
