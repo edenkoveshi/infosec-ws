@@ -919,6 +919,7 @@ deps_/home/fw/github/infosec-ws/EX4/conn_table.o := \
   include/net/dsfield.h \
   /home/fw/github/infosec-ws/EX4/fw_log.h \
   /home/fw/github/infosec-ws/EX4/list.h \
+  /home/fw/github/infosec-ws/EX4/sha1.h \
 
 /home/fw/github/infosec-ws/EX4/conn_table.o: $(deps_/home/fw/github/infosec-ws/EX4/conn_table.o)
 

@@ -309,14 +309,44 @@ ssize_t show_conn_tab_size(struct device *dev, struct device_attribute *attr, ch
 }
 
 
-int compute_idx(conn_t* conn){
-  unsigned char* key;
-  unsigned int idx;
+int compute_idx(conn_t* conn){ //https://github.com/clibs/sha1
+  char* key;
+  int idx = 0;
+  long _idx = 0;
+  char temp[2];
+  int j;
+  char hashval[SHA1_LENGTH];
+  size_t len;
+
   if(!conn) return ERROR;
   key = kmalloc(5*2 + 10*2,GFP_ATOMIC); //ip*2 and port*2
   if(!key) return ERROR;
   snprintf(key,5*2+10*2,"%u%u%u%u",conn->src_ip,conn->src_port,conn->dst_ip,conn->dst_port);
-  idx = joaat_hash(key,strlen(key));
+
+  /*
+    Prepare for hashing
+  */
+  len = strlen(key);
+
+  /*
+    Hash
+  */
+  SHA1(hashval,key,len);
+
+  /*
+    Compress hash result into an integer
+  */
   kfree(key);
+  temp[1] = '\0';
+  for(j=0;j<18;j++){
+    //memset(temp,0,1);
+    temp[0] = hashval[j];
+    if(kstrtol(temp,16,&_idx) == ERROR){
+      return ERROR;
+    }
+    _idx = _idx%TABLE_SIZE;
+    idx = (int)((((long)(idx) + _idx))%TABLE_SIZE);
+  }
+
   return idx;
 }

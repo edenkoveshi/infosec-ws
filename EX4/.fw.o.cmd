@@ -920,6 +920,7 @@ deps_/home/fw/github/infosec-ws/EX4/fw.o := \
   /home/fw/github/infosec-ws/EX4/fw_rules.h \
   /home/fw/github/infosec-ws/EX4/conn_table.h \
   /home/fw/github/infosec-ws/EX4/conn.h \
+  /home/fw/github/infosec-ws/EX4/sha1.h \
 
 /home/fw/github/infosec-ws/EX4/fw.o: $(deps_/home/fw/github/infosec-ws/EX4/fw.o)
 
