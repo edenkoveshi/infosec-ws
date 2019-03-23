@@ -398,8 +398,6 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 								int (*okfn)(struct sk_buff *))
 {
 	struct iphdr *iph; 
-	struct tcphdr *tcph;
-	//unsigned short int sport, dport;
 	int sip, dip;
 	decision_t* d;
 	if(skb != NULL){ //error check
@@ -424,7 +422,6 @@ unsigned int hook_func_local_out(unsigned int hooknum,
 				d = inspect_pkt(skb,DIRECTION_OUT);
 				if(d==NULL) return NF_DROP;
 				return d->action;
-				//return NF_ACCEPT;
 			}
 		}
 	}
@@ -630,7 +627,6 @@ static int __init fw_init(void){
 	clear_rules();
 	add_localhost();
 	add_prot_other();
-	init_conn_table();
 
 	nf_register_hook(&forwarded_pkt_ops);
 	nf_register_hook(&internal_incoming_pkt_ops);
@@ -645,7 +641,6 @@ static void __exit fw_exit(void){
 	nf_unregister_hook(&forwarded_pkt_ops);
 	clear_logs();
 	clear_rules();
-	//clean_conn_table();
 	device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_clear.attr);
 	device_remove_file(log_device, (const struct device_attribute *)&dev_attr_log_size.attr);
 	device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_active.attr);

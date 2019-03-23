@@ -5,57 +5,16 @@ static conn_list_t* table[TABLE_SIZE];
 static int cur_conn_num = 0;
 static int num_conns = 0;
 
-
-unsigned int joaat_hash(unsigned char *key, size_t len) //https://en.wikibooks.org/wiki/Data_Structures/Hash_Tables
-  {
-    unsigned int hash = 0;
-    size_t i;
-
-    for (i = 0; i < len; i++)
-    {
-        hash += key[i];
-        hash += (hash << 10);
-        hash ^= (hash >> 6);
-    }
-    hash += (hash << 3);
-    hash ^= (hash >> 11);
-    hash += (hash << 15);
-    return hash%TABLE_SIZE;
-}
-
-void init_conn_table(void){
-  //table = kmalloc(sizeof(conn_list_t*) * TABLE_SIZE,GFP_ATOMIC);
-  /*if(!table){
-    printk(KERN_INFO "error allocating memory");
-    exit(0);
-  }*/
-}
-
-void clean_conn_table(void){
-  int i=0;
-  conn_list_t* list;
-  conn_list_t* _list;
-  if(table == NULL) return;
-  while(table[i] != NULL){
-    printk(KERN_INFO"clearing conn %d",i);
-    list = table[i];
-    remove_conn_from_table(list,compare_conn);
-    printk(KERN_INFO"cleared conn %d",i);
-    i++;
-  }
-  kfree(table);   
-}
-
 conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)){
   int idx;
   conn_list_t* res;
-  conn_list_t* temp;
+  //conn_list_t* temp;
   int i = 0;
 
-  if(!conn || !compare_func || !table) return NULL;
+  if(!conn || !compare_func) return NULL;
 
   idx = compute_idx(conn);
-  if(idx == ERROR) return ERROR;
+  if(idx == ERROR) return NULL;
   //idx = joaat_hashs("23554645454",strlen("23554645454"));
 
   res = table[idx];

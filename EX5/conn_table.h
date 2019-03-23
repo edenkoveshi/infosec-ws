@@ -10,12 +10,6 @@
 
 #define TABLE_SIZE 50
 
-unsigned int joaat_hash(unsigned char *key, size_t len);
-
-void init_conn_table(void);
-
-void clean_conn_table(void);
-
 conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*));
 
 int remove_conn_from_table(conn_t* conn,int (*compare_func)(conn_t*,conn_t*));
