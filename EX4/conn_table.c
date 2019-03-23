@@ -153,7 +153,7 @@ int update_table(conn_t* new,conn_t* conn_in_table,conn_t* rev){
       }
 
       else if(rev->state == TCP_FIN) return SUCCESS;
-      return SUCCESS;
+      //return SUCCESS;
       break;
     case TCP_FIN:
       if(conn_in_table->state == TCP_FIN) return ERROR; //can't send packets

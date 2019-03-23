@@ -49,7 +49,7 @@ void destroy_conn_node(conn_list_t* toRemove, conn_list_t* prev){
 		}
 
 		if(toRemove->conn != NULL) kfree(toRemove->conn);
-		kfree(toRemove);
+		if(prev != NULL) kfree(toRemove); //make sure to not remove the initialized beginning node
 	}
 }
 
