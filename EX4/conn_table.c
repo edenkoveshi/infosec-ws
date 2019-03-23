@@ -153,12 +153,13 @@ int update_table(conn_t* new,conn_t* conn_in_table,conn_t* rev){
       }
 
       else if(rev->state == TCP_FIN) return SUCCESS;
+      return SUCCESS;
       break;
     case TCP_FIN:
       if(conn_in_table->state == TCP_FIN) return ERROR; //can't send packets
       conn_in_table->state = TCP_FIN;
-      /*remove_conn_from_table(conn_in_table,compare_conn);
-      remove_conn_from_table(rev,compare_conn);*/
+      //remove_conn_from_table(conn_in_table,compare_conn);
+      //remove_conn_from_table(rev,compare_conn);
       return SUCCESS;
       break;
     default: //should not reach syn or syn ack
