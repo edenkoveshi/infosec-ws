@@ -217,36 +217,13 @@ void redirect_in(struct sk_buff* skb){
 		check = 1;
 	}
 
-	if (tcph->source == htons(20) && iph->saddr == htonl(HOST2_OUT_IP)) //FTP-DATA server to client. redirect to local proxy
-	{	
-		iph->daddr = htonl(HOST2_IN_IP);   //10.0.2.3
-		check = 1;
-	}
-	if (tcph->dest == htons(20) && iph->saddr == htonl(HOST1_OUT_IP)) //FTP-DATA client to server. redirect to local proxy
-	{	
-		iph->daddr = htonl(HOST1_IN_IP);   //10.0.1.3
-		check = 1;
-	}
-
-	/*if(ip_hdrlen(skb) == NULL){
-		printk(KERN_INFO "ip_hdrlen is null\n");
-		return;
-	}*/
 	if(check){
 		tcplen = skb->len - ip_hdrlen(skb);
 	    tcph->check=0;
-	    /*if(csum_partial((char*)tcph,tcplen,0) == NULL){
-	    	printk(KERN_INFO "csum_partial is null\n");
-	    	return;
-	    }*/
 
 	    tcph->check = tcp_v4_check(tcplen, iph->saddr, iph->daddr,csum_partial((char*)tcph, tcplen,0));
 	    skb->ip_summed = CHECKSUM_NONE;
 	    iph->check = 0;
-	    /*if(ip_fast_csum((u8 *)iph, iph->ihl) == NULL){
-	    	printk(KERN_INFO "fast csum failed\n");
-	    	return;
-	    }*/
 
 	    iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
 	    
@@ -323,35 +300,15 @@ void redirect_out(struct sk_buff *skb){
 		check = 1;
 	}
 	
-	if (tcph->dest == htons(20) && iph->saddr == htonl(HOST2_IN_IP)) //local proxy to FTP-DATA server. change source ip to be that of the client.
-	{			
-		//change source ip
-		iph->saddr = htonl(HOST1_OUT_IP);	  //10.0.1.1
-		check = 1;
-	}
-	if (tcph->source == htons(20) && iph->daddr == htonl(HOST1_OUT_IP)) //local proxy to FTP-DATA client. change source ip and port to be that of the server.
-	{			
-		//change source ip
-		iph->saddr = htonl(HOST2_OUT_IP);	  //10.0.2.2
-		check = 1;
-	}
 	
 	//here starts the checksum fix for both IP and TCP
 	if(check){
 		tcplen = skb->len - ip_hdrlen(skb);
 	    tcph->check=0;
-	    /*if(csum_partial((char*)tcph,tcplen,0) == NULL){
-	    	printk(KERN_INFO "csum_partial is null\n");
-	    	return;
-	    }*/
 
 	    tcph->check = tcp_v4_check(tcplen, iph->saddr, iph->daddr,csum_partial((char*)tcph, tcplen,0));
 	    skb->ip_summed = CHECKSUM_NONE;
 	    iph->check = 0;
-	    /*if(ip_fast_csum((u8 *)iph, iph->ihl) == NULL){
-	    	printk(KERN_INFO "fast csum failed\n");
-	    	return;
-	    }*/
 
 	    iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
 	    printk(KERN_INFO "@@@@@@@@@@@@@ending redirect out@@@@@@@@@@@@@");
