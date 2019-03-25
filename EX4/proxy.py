@@ -129,21 +129,9 @@ class TheServer:
 				if(con_len > ALLOWED_LENGTH): #"unallowed" length
 					body = data.split('\r\n\r\n')[1]
 					if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected
-						self.on_close()
 						print body
 						return False
-
-			elif(data.startswith("POST ")): #POST request, check data with dlp
-				start_idx = data.find('\x0d\x0a'*2)
-				if (start_idx != -1):
-					code = data[start_idx+4:]
-					if (dlp.isCode(code)):
-						print "Code detected!"
-						self.on_close()
-						print code
-						return False
 		else: #header doesn't exist, close the connection.
-				self.on_close()
 				print data
 				return False
 		return True

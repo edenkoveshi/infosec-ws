@@ -149,11 +149,10 @@ class TheServer:
 			else:
 				con_len = int(data[idx + clen + 1:].partition("\x0a")[0])
 			print "Got HTTP content length: %d" % con_len
-			if(header.startswith("HTTP/1.")): #data from the server starts with HTTP/1.
+			if(header.startswith("GET ")): #data from the server starts with HTTP/1.
 				if(con_len > ALLOWED_LENGTH): #"unallowed" length
 					body = data.split('\r\n\r\n')[1]
 					if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected
-						self.on_close()
 						print body
 						return False
 
@@ -163,11 +162,9 @@ class TheServer:
 					code = data[start_idx+4:]
 					if (dlp.isCode(code)):
 						print "Code detected!"
-						self.on_close()
 						print code
 						return False
 		else: #header doesn't exist, close the connection.
-				self.on_close()
 				print data
 				return False
 		return True
