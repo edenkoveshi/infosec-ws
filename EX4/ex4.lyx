@@ -126,7 +126,7 @@ method
 for collision resolution.
 \end_layout
 
-\begin_layout Section
+\begin_layout Section*
 The Hash Function
 \end_layout
 
@@ -259,7 +259,7 @@ SHA-1
 provides good security and performence together.
 \end_layout
 
-\begin_layout Section
+\begin_layout Section*
 The conn interface (
 \emph on
 conn.c,conn.h
@@ -514,7 +514,7 @@ conn.
 )
 \end_layout
 
-\begin_layout Section
+\begin_layout Section*
 The Connection Table (
 \emph on
 conn_table.c,conn_table.h
@@ -984,6 +984,278 @@ Returns a string representing the i'th connection (in linear traverse order)
 \begin_layout Verse
 Those 3 functions are used in user space code to print the entire connection
  table.
+\end_layout
+
+\begin_layout Part
+Deeper Inspection of Application Layer Protocols
+\end_layout
+
+\begin_layout Section*
+Overview
+\end_layout
+
+\begin_layout Standard
+This exercise introduces another new component - deeper inspection of applicatio
+n layer protocols.
+\end_layout
+
+\begin_layout Standard
+This time, we check the data of application layer packets, and as it requires
+ rather complicated computations, this component is implemented as a user-space
+ program, written in python.
+\end_layout
+
+\begin_layout Standard
+The program is a server, with two listening sockets, one on port 8080 -
+ for HTTP packets, and one on port 2021 - for FTP packets.
+\end_layout
+
+\begin_layout Standard
+When a packet arrives, it is inserted into a queue, and checked by http/ftp
+ rules.
+\end_layout
+
+\begin_layout Standard
+To make this work, packets are redirected in kernel code - their source/destinat
+ion ip and port change so it will be routed to the 
+\begin_inset Quotes eld
+\end_inset
+
+proxy
+\begin_inset Quotes erd
+\end_inset
+
+ server, and then changed again when coming back from the server.
+ Their checksums are corrected so it won't get dropped in the way.
+\end_layout
+
+\begin_layout Section*
+The 
+\begin_inset Quotes eld
+\end_inset
+
+Proxy
+\begin_inset Quotes erd
+\end_inset
+
+ Server (
+\emph on
+proxy.py
+\emph default
+)
+\end_layout
+
+\begin_layout Standard
+The server has two listening sockets, as explained above.
+ The code was inspired by a python socket programming tutorial I've found
+ online
+\begin_inset Formula $^{3}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The main function simply creates the two sockets and activates them on two
+ threads, so they can function simultaniously.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+class TheServer:
+\end_layout
+
+\begin_layout Standard
+This class implements a server listening on port given as input,and forwards
+ packets to a port given as input.
+\end_layout
+
+\begin_layout Standard
+It has the following functions:
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+main_loop(self):
+\end_layout
+
+\begin_layout Standard
+This is the main loop of the server,which simply listens and waits to accept
+ incoming connections.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+on_accept(self):
+\end_layout
+
+\begin_layout Standard
+This function occurs when accepting an incoming connection.
+ It simply initiates a connection with the forward host(See 
+\begin_inset Quotes eld
+\end_inset
+
+class Forward
+\begin_inset Quotes erd
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+on_recv(self):
+\end_layout
+
+\begin_layout Standard
+This function occurs when recieving data from the connected socket.
+ This function inspects the packet's data according to HTTP/FTP rules (depends
+ on the recieving server forward port), using 
+\emph on
+inspect_http/inspect_ftp 
+\emph default
+functions (described later).
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+on_close(self):
+\end_layout
+
+\begin_layout Standard
+Defines what happens when the connection closes.
+ Simply closes the connection with the forward host.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+inspect_http(self):
+\end_layout
+
+\begin_layout Standard
+This function analyzes the data of an HTTP packet, according to the following
+ rules:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+Headers must begin with HTTP/1 (HTTP/1.0 or HTTP/1.1)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+Content-Length header must exist
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+If content length is more than 2000 bytes, ensure it is not an Office file,
+ by looking for the Office magic number in the appropriate offset
+\begin_inset Formula $^{4}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+If any of these fail, the packet is dropped immediately.
+\end_layout
+
+\begin_layout Standard
+If all tests pass, forward the packet to the forward host.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+inspect_ftp(self):
+\end_layout
+
+\begin_layout Standard
+This function analyzes the data of an FTP packet, using a variable 
+\emph on
+ftp_state 
+\emph default
+which keeps the current state.
+\end_layout
+
+\begin_layout Standard
+The states are: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ FTP_NONE - FTP connection not initiated yet.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ FTP_USER_SENT - USER command has been sent
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ FTP_USER_OK - username has been authorized, waiting for password
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ FTP_PASS_SENT - PASS command has been sent.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ FTP_CONN_ESTABLISHED - connection is established.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ FTP_PORT_SENT - PORT command was sent
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ FTP_FILE_TRANSFER - In the procedure of file transfer
+\end_layout
+
+\begin_layout Standard
+The functions tracks the commands and return codes and makes sure it fits
+ the pattern of 
+\begin_inset Formula $USER->331->PASS->230->(PORT->150->STOR/RECV->226)*->221$
+\end_inset
+
+ while allowing 
+\begin_inset Formula $220\, OK$
+\end_inset
+
+ whenever the connection is established, to support any non-get/put command
 \end_layout
 
 \end_body

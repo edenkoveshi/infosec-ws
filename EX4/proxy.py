@@ -23,19 +23,6 @@ HTTP_PORT = 8080
 FTP_PORT = 2021
 HOST_2 = '10.0.2.2'
 
-class Forward:
-	def __init__(self):
-		self.forward = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.forward.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-	def start(self, host, port):
-		print "Forward Host: %s Port: %d" % (host,port)
-		try:
-			self.forward.connect((host, port))
-			return self.forward
-		except Exception, e:
-			print e
-			return False
-
 class TheServer:
 	def __init__(self, host, port, forward_port):
 		self.forward_port = forward_port
@@ -70,18 +57,20 @@ class TheServer:
 					break
 
 	def on_accept(self):
-		forward = Forward().start(HOST_2, self.forward_port)
-		clientsock, clientaddr = self.server.accept()
-		if forward:
+		try:
+			self.forward = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self.forward.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			self.forward.connect((HOST_2, self.forward_port))
+			clientsock, clientaddr = self.server.accept()
+			#if forward:
 			print clientaddr, "has connected"
 			self.input_list.append(clientsock)
-			self.input_list.append(forward)
-			self.channel[clientsock] = forward
-			self.channel[forward] = clientsock
-		else:
-			print "Can't establish connection with remote server.",
-			print "Closing connection with client side", clientaddr
-			clientsock.close()
+			self.input_list.append(self.forward)
+			self.channel[clientsock] = self.forward
+			self.channel[self.forward] = clientsock
+		except Exception,e:
+			#print e
+			return
 
 	def on_close(self):
 		print self.s.getpeername(), "has disconnected"
@@ -124,7 +113,7 @@ class TheServer:
 			else:
 				con_len = int(data[idx + clen + 1:].partition("\x0a")[0])
 			print "Got HTTP content length: %d" % con_len
-			if(data.startswith("GET ")): #data from the server starts with HTTP/1.
+			if(data.startswith("HTTP/1 ")): #data from the server starts with HTTP/1.
 				if(con_len > ALLOWED_LENGTH): #"unallowed" length
 					body = data.split('\r\n\r\n')[1]
 					if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected
