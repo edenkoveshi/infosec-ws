@@ -117,12 +117,6 @@ int assign_state(conn_t* conn,state_t state){
 	return SUCCESS;
 }
 
-/*int assign_state_2(conn_t* conn,state_t state){
-	if(!conn) return ERROR;
-	conn->state = state;
-	return SUCCESS;
-}*/
-
 int is_valid_state(state_t cur,state_t cur_in_table,state_t rev){
     switch(cur){
       case TCP_ACK:
