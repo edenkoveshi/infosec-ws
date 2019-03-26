@@ -1,0 +1,990 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Information Security Workshop - Ex.
+ 4
+\end_layout
+
+\begin_layout Author
+Eden Koveshi 316221746
+\end_layout
+
+\begin_layout Standard
+This exercise intorduces two new components: a 
+\emph on
+connection table
+\emph default
+, and a 
+\begin_inset Quotes eld
+\end_inset
+
+
+\emph on
+proxy server
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+ to inspect deeply complicated protocols.
+\end_layout
+
+\begin_layout Standard
+Before using the firewall, run the following command in linux bash,from
+ the working directory:
+\end_layout
+
+\begin_layout LyX-Code
+python ./module/interface/proxy.py
+\end_layout
+
+\begin_layout Part
+Stateful Packet Inspection
+\end_layout
+
+\begin_layout Standard
+Newly added in this exercise is stateful packet filtering, using a 
+\emph on
+connection table
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+As most good firewalls do, my firewall's connection table is implemented
+ with a 
+\emph on
+hash table
+\emph default
+, using 
+\emph on
+chaining 
+\emph default
+method
+\emph on
+ 
+\emph default
+for collision resolution.
+\end_layout
+
+\begin_layout Section
+The Hash Function
+\end_layout
+
+\begin_layout Standard
+The connection table deploys 
+\series bold
+\emph on
+SHA-1 
+\series default
+\emph default
+as it's hash function.
+\end_layout
+
+\begin_layout Standard
+The code for 
+\emph on
+SHA-1 
+\emph default
+was taken almost entirely from a free and open source project
+\begin_inset Formula $^{1}$
+\end_inset
+
+, with mild changes I made to make it fit within the Linux kernel, while
+ being cautious not to make it vulnerable.
+ This implementation has not been validated by the NIST, however it seems
+ good and consistent with the 
+\emph on
+SHA-1 
+\emph default
+hashing algorithm.
+\end_layout
+
+\begin_layout Standard
+The reasons I chose 
+\emph on
+SHA-1 
+\emph default
+are:
+\end_layout
+
+\begin_layout Verse
+
+\series bold
+1.
+ Security.
+\series default
+This is a cryptographic hash function.
+ Those turn out very useful in connection tables.
+ The most common case is 
+\emph on
+SYN flood
+\emph default
+.
+ An attacker can open a connect from (sip,sport) to (dip,dport) only once
+ (second SYN gets thrown away, see the connection table spec.), a good DOS
+ attack would open many connections which will result in the same key (modulus
+ the hash table size).
+ However, hashing the key with a cryptographic, irreversible and collision
+ resistant, hash function prevents this,as finding a collision in the hash
+ table is equal to finding a collision in the hash function.
+ 
+\end_layout
+
+\begin_layout Verse
+As with any good thing, there are caveats:
+\end_layout
+
+\begin_layout Verse
+a.
+ Not too long ago, researchers managed to find a collision in the 
+\emph on
+SHA-1 
+\emph default
+function for two different inputs
+\begin_inset Formula $^{2}$
+\end_inset
+
+, which mathematically means 
+\emph on
+SHA-1 
+\emph default
+is broken.
+ However,it is still believed by most to have 
+\begin_inset Quotes eld
+\end_inset
+
+strong
+\begin_inset Quotes erd
+\end_inset
+
+ security, and used widely in many cryptographic systems.
+\end_layout
+
+\begin_layout Verse
+b.
+ With big effort, SYN flood attack is still possible, using rainbow tables
+ and etc..
+ Unfortunately I had no time to implement SYN-cookies, but this still solves
+ the most common case, and many different attacks not introduced here.
+\end_layout
+
+\begin_layout Verse
+
+\series bold
+2.
+ Performence.
+ 
+\series default
+Cryptographic hash functions usually do a large number of heavy computations,
+ and less suitable for search than regular hash functions (however, a hash
+ table deploying a cryptographic hash function still has better performence
+ than most data structures).
+ 
+\emph on
+SHA-1 
+\emph default
+is considered fast among cryptographic hash functions, and performence is
+ important here.
+\end_layout
+
+\begin_layout Standard
+The use of a 
+\emph on
+hash table
+\emph default
+ data structure deploying 
+\emph on
+SHA-1 
+\emph default
+provides good security and performence together.
+\end_layout
+
+\begin_layout Section
+The conn interface (
+\emph on
+conn.c,conn.h
+\emph default
+)
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+struct conn_t 
+\series default
+\emph default
+is an abstraction for a 
+\emph on
+connection
+\emph default
+, defined by source ip and port, destination ip and port, state and timeout.
+\end_layout
+
+\begin_layout Standard
+state is a TCP state, and can be one of the next values:
+\end_layout
+
+\begin_layout Itemize
+
+\emph on
+TCP_SYN
+\emph default
+ - this indicates that a SYN packet was sent and the connection is now being
+ initiated.
+\end_layout
+
+\begin_layout Itemize
+
+\emph on
+TCP_SYN_ACK - 
+\emph default
+this indicates that a SYN+ACK was recieved, as a second part of the three-way
+ handshake
+\end_layout
+
+\begin_layout Itemize
+
+\emph on
+TCP_ESTABLISHED
+\emph default
+ - this indicates that the connection is established
+\end_layout
+
+\begin_layout Itemize
+
+\emph on
+TCP_ACK
+\emph default
+ - this indicates that a regular packet (ack bit only) was sent.
+ This applies only to an incoming connection and not to a connection saved
+ in the table.
+\end_layout
+
+\begin_layout Itemize
+
+\emph on
+TCP_FIN 
+\emph default
+- this indicates that a FIN packet was sent, initiating connection termination.
+\end_layout
+
+\begin_layout Standard
+This component defines all connection-related actions that are not dependant
+ of the connection table.
+\end_layout
+
+\begin_layout Standard
+In some cases,when describing a function I'll refer to a conn as a 4-tuple
+ (sip,dip,sport,dport),or 5-tuple (sip,dip,sport,dport,state) where the
+ left-outs can have any arbitrary value in the specific function.
+\end_layout
+
+\begin_layout Standard
+Also, for a connection 
+\begin_inset Formula $c=(sip,dip,sport,dport)$
+\end_inset
+
+, define it's 
+\series bold
+reverse connection 
+\series default
+by 
+\begin_inset Formula $c^{*}=(dip,sip,dport,sport)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+struct conn_list_t 
+\series default
+\emph default
+is a simple list, where every node is of type 
+\emph on
+conn_t
+\end_layout
+
+\begin_layout Standard
+The 
+\emph on
+conn 
+\emph default
+functions:
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int compare_conn(conn_t* a,conn_t* b):
+\end_layout
+
+\begin_layout Verse
+This function compares two coons 
+\begin_inset Formula $(a,b,c,d)$
+\end_inset
+
+,
+\begin_inset Formula $(\alpha,\beta,\gamma,\delta)$
+\end_inset
+
+ coordinate-wise, returns 0 (SUCCESS) iff they are equal
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+conn_t* init_conn(__be32 src_ip,__be16 src_port,__be32 dst_ip,__be16 dst_port):
+\end_layout
+
+\begin_layout Verse
+This function initializes a new connection by setting it's source port and
+ ip,destination port and ip to the given parameters, and setting it's timeout
+ to [current time in seconds] + 25
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+conn_list_t* init_conn_node(conn_t* conn):
+\end_layout
+
+\begin_layout Verse
+This function initializes a list node, and sets it's conn member to the
+ given conn param
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+void destroy_conn_node(conn_list_t* toRemove, conn_list_t* prev):
+\end_layout
+
+\begin_layout Verse
+This function destroys a list node and freeing it's memory while maintaining
+ the list order.
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int add_after_conn_node(conn_list_t* list,conn_t* new):
+\end_layout
+
+\begin_layout Verse
+This function adds a new node, containing connection 
+\emph on
+new
+\emph default
+, after list node 
+\emph on
+list
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+conn_t* reverse_conn(conn_t* conn):
+\end_layout
+
+\begin_layout Verse
+Returns the reverse connection of 
+\emph on
+conn
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int compute_state(conn_t* conn,struct tcphdr* tcph):
+\end_layout
+
+\begin_layout Verse
+For a
+\series bold
+ 
+\series default
+packet defining connection 
+\emph on
+c
+\emph default
+, compute 
+\emph on
+c
+\emph default
+'s state by it's flags.
+ The state can be either one of 
+\emph on
+TCP_SYN, TCP_SYN_ACK or TCP_ACK.
+ 
+\emph default
+This is an initial state, used for either table insertion or update.
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int assign_state(conn_t* conn,state_t state):
+\end_layout
+
+\begin_layout Verse
+Assign state 
+\emph on
+state 
+\emph default
+connection 
+\emph on
+conn.
+ 
+\emph default
+(
+\begin_inset Formula $(sip,dip,sport,dport,s)\longmapsto(sip,dip,sport,dport,s^{*})$
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Section
+The Connection Table (
+\emph on
+conn_table.c,conn_table.h
+\emph default
+)
+\end_layout
+
+\begin_layout Standard
+The connection table is an array of size TABLE_SIZE - a constant, currently
+ defined as 50 and may be changed any time, and all of it's elements are
+ of type 
+\emph on
+conn_list_t* 
+\emph default
+to support chaining inside table cells.
+\end_layout
+
+\begin_layout Standard
+Before describing the functions and API, I'll start with a brief explanation.
+\end_layout
+
+\begin_layout Standard
+Every packet that enters the firewall, except for packets captured by the
+ LOCAL_IN hook, passes a series of stages, regarding the connection table
+ and potentially the rule table.
+\end_layout
+
+\begin_layout Standard
+Packets are categorized by five groups: SYN(no ACK) packets,SYN+ACK packets,RST
+ packets,any other TCP packet, non-TCP packets.
+ Every packet induces a connection, and the next steps are performed on
+ that connection.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+For SYN packets, the stages are: pass rule table -> assign SYN state ->
+ add to connection table
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+For SYN+ACK packets, the stages are: look for reverse connection -> make
+ sure it has SYN state -> assign SYN_ACK state -> add to connection table
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+For RST packets,the stages are: look for connection -> look for reverse
+ connection -> remove both from table
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+For any other TCP packet: look up for connection and reverse connection
+ in table -> update table accordingly
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+For non-TCP packets: compare against the rule table and pass/deny accordingly
+\end_layout
+
+\begin_layout Standard
+If any of the stages fails for a specific packet, it is dropped immediately,
+ with the one exception of 
+\begin_inset Quotes eld
+\end_inset
+
+look for reverse connection
+\begin_inset Quotes erd
+\end_inset
+
+ stage in RST packets.
+ This is the only stage that may fail, conditioned that the state of the
+ connection found is SYN.
+\end_layout
+
+\begin_layout Standard
+If all stages passed successfully, the packet may continue its journey.
+\end_layout
+
+\begin_layout Standard
+This procedure is defined in the function 
+\emph on
+inspect_pkt 
+\emph default
+from last exercise,defined in 
+\emph on
+fw_rules.c
+\emph default
+, which is the main fuction for inspecting packets.
+\end_layout
+
+\begin_layout Standard
+The functions:
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+conn_t* lookup(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)):
+\end_layout
+
+\begin_layout Verse
+The function looks for the connection 
+\emph on
+conn 
+\emph default
+in the table, returns it if found, NULL if not found.
+ It is important since 
+\emph on
+conn 
+\emph default
+and the returned connection may have different states.
+ More thorougly, the function uses 
+\emph on
+compute_idx 
+\emph default
+(described later) to compute the key of this connection in the table, traverses
+ the list saved in that place, and compares each one of the nodes connection
+ with the input connection 
+\emph on
+conn
+\emph default
+, using 
+\emph on
+compare_func
+\emph default
+.
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int remove_conn_from_table(conn_t* conn,int (*compare_func)(conn_t*,conn_t*)):
+\end_layout
+
+\begin_layout Verse
+Given 
+\emph on
+conn 
+\emph default
+and 
+\emph on
+compare_func, 
+\emph default
+computes the key for 
+\emph on
+conn 
+\emph default
+using 
+\emph on
+compute_idx, 
+\emph default
+traverses the list at that place and compares every node with 
+\emph on
+compare_func
+\emph default
+, once the node is found, it is deleted using 
+\emph on
+destroy_conn_node 
+\emph default
+described above.
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int update_table(conn_t* cur,conn_t* conn_in_table,conn_t* rev):
+\end_layout
+
+\begin_layout Verse
+This function accepts 3 parameters, where 
+\emph on
+cur 
+\emph default
+and 
+\emph on
+cur_in_table 
+\emph default
+both define the same connection, except that 
+\emph on
+cur 
+\emph default
+is induced by the current packet, and 
+\emph on
+cur_in_table 
+\emph default
+was found in the connection table, their state might differ.
+ 
+\emph on
+rev_state 
+\emph default
+is the reverse connection of 
+\emph on
+cur_in_table
+\emph default
+.
+ This function decides whether 
+\emph on
+cur
+\emph default
+'s state is valid or not, and makes appropriate changes, by some rules.
+ Denote their states by 
+\begin_inset Formula $s_{1},s_{2},s_{3}$
+\end_inset
+
+ wrt.
+ parameters order.
+ The rules are:
+\end_layout
+
+\begin_layout Verse
+\begin_inset Formula $\bullet$
+\end_inset
+
+
+\emph on
+Threeway handshake: 
+\emph default
+if 
+\begin_inset Formula $s_{1}$
+\end_inset
+
+=
+\emph on
+TCP_ACK,
+\begin_inset Formula $s_{2}$
+\end_inset
+
+=TCP_SYN
+\emph default
+,
+\begin_inset Formula $s_{3}$
+\end_inset
+
+=
+\emph on
+TCP_SYN_ACK
+\emph default
+, then they form a valid threeway handshake, and 
+\begin_inset Formula $s_{1}$
+\end_inset
+
+ is valid.
+ Update 
+\begin_inset Formula $s_{2}=s_{3}=$
+\end_inset
+
+
+\emph on
+TCP_CONN_ESTABLISHED
+\end_layout
+
+\begin_layout Verse
+\begin_inset Formula $\bullet$
+\end_inset
+
+if 
+\begin_inset Formula $s_{1}=$
+\end_inset
+
+
+\emph on
+TCP_ACK 
+\emph default
+and 
+\begin_inset Formula $s_{2}=s_{3}$
+\end_inset
+
+=
+\emph on
+TCP_CONN_ESTABLISHED 
+\emph default
+then 
+\begin_inset Formula $s_{1}$
+\end_inset
+
+ is valid, no update required.
+\end_layout
+
+\begin_layout Verse
+\begin_inset Formula $\bullet$
+\end_inset
+
+if 
+\begin_inset Formula $s_{1}$
+\end_inset
+
+= 
+\emph on
+TCP_ACK 
+\emph default
+and 
+\begin_inset Formula $s_{2}=s_{3}=$
+\end_inset
+
+
+\emph on
+TCP_FIN 
+\emph default
+then 
+\begin_inset Formula $s_{1}$
+\end_inset
+
+ terminates the connection and it is valid, remove 
+\emph on
+conn_in_table,rev 
+\emph default
+from table.
+\end_layout
+
+\begin_layout Verse
+\begin_inset Formula $\bullet$
+\end_inset
+
+if 
+\begin_inset Formula $s_{1}$
+\end_inset
+
+=
+\emph on
+TCP_FIN 
+\emph default
+and 
+\begin_inset Formula $s_{2}\neq$
+\end_inset
+
+
+\emph on
+TCP_FIN 
+\emph default
+(or else this side of the connection is already closed and might not send
+ messages), then 
+\begin_inset Formula $s_{1}$
+\end_inset
+
+ is valid.
+ Update 
+\begin_inset Formula $s_{2}=$
+\end_inset
+
+
+\emph on
+TCP_FIN
+\end_layout
+
+\begin_layout Verse
+As this function applies only to TCP,non-SYN/SYNACK packets, this is all
+ that required to update connections correctly.
+\end_layout
+
+\begin_layout Verse
+Returns 0 (SUCCESS) if any of the rules apply, -1 (ERROR) otherwise
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int add_connection(conn_t* conn):
+\end_layout
+
+\begin_layout Verse
+This function computes the key for 
+\emph on
+conn 
+\emph default
+using 
+\emph on
+compute_idx 
+\emph default
+(surprise..) and inserts it as last in the list lying there (creates a new
+ one if cell is empty)
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+int compute_idx(conn_t* conn):
+\end_layout
+
+\begin_layout Verse
+Given 
+\begin_inset Formula $(sip,dip,sport,dport)$
+\end_inset
+
+, computes 
+\emph on
+
+\begin_inset Formula $s=SHA1(sip||dip||sport||dport)$
+\end_inset
+
+, 
+\emph default
+where 
+\begin_inset Formula $||$
+\end_inset
+
+ stands for concatenation.
+\end_layout
+
+\begin_layout Verse
+It then turns s into an integer by splitting it to 5 and summing (mod TABLE_SIZE
+)
+\end_layout
+
+\begin_layout Verse
+This might harm security, but seems harmless in first sight.
+\end_layout
+
+\begin_layout Verse
+
+\series bold
+Kernel-to-user-space functions:
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+ssize_t show_conn_tab_size(struct device *dev, struct device_attribute *attr,
+ char *buf):
+\end_layout
+
+\begin_layout Verse
+Returns the size of the connection table, saved in static variable 
+\emph on
+num_conns
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+ssize_t set_conn(struct device *dev, struct device_attribute *attr, const
+ char *buf, size_t count):
+\end_layout
+
+\begin_layout Verse
+Sets the static variable 
+\emph on
+cur_conn_num 
+\emph default
+to given input
+\end_layout
+
+\begin_layout Verse
+
+\emph on
+ssize_t show_conn_tab_size(struct device *dev, struct device_attribute *attr,
+ char *buf):
+\end_layout
+
+\begin_layout Verse
+Returns a string representing the i'th connection (in linear traverse order)
+\end_layout
+
+\begin_layout Verse
+Those 3 functions are used in user space code to print the entire connection
+ table.
+\end_layout
+
+\end_body
+\end_document
