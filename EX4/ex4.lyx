@@ -569,8 +569,7 @@ For SYN+ACK packets, the stages are: look for reverse connection -> make
 \begin_inset Formula $\bullet$
 \end_inset
 
-For RST packets,the stages are: look for connection -> look for reverse
- connection -> remove both from table
+For RST packets,the stages are: reverse connection -> remove both connections
 \end_layout
 
 \begin_layout Standard
@@ -589,18 +588,7 @@ For non-TCP packets: compare against the rule table and pass/deny accordingly
 \end_layout
 
 \begin_layout Standard
-If any of the stages fails for a specific packet, it is dropped immediately,
- with the one exception of 
-\begin_inset Quotes eld
-\end_inset
-
-look for reverse connection
-\begin_inset Quotes erd
-\end_inset
-
- stage in RST packets.
- This is the only stage that may fail, conditioned that the state of the
- connection found is SYN.
+If any of the stages fails for a specific packet, it is dropped immediately.
 \end_layout
 
 \begin_layout Standard
@@ -1095,15 +1083,15 @@ on_accept(self):
 
 \begin_layout Standard
 This function occurs when accepting an incoming connection.
- It simply initiates a connection with the forward host(See 
+ It simply initiates a connection with the 
 \begin_inset Quotes eld
 \end_inset
 
-class Forward
+forward
 \begin_inset Quotes erd
 \end_inset
 
-).
+ host - the host that should recieve the data eventually (host2)
 \end_layout
 
 \begin_layout Standard
@@ -1246,16 +1234,94 @@ The states are:
 \end_layout
 
 \begin_layout Standard
-The functions tracks the commands and return codes and makes sure it fits
+The function tracks the commands and return codes and makes sure it fits
  the pattern of 
-\begin_inset Formula $USER->331->PASS->230->(PORT->150->STOR/RECV->226)*->221$
+\begin_inset Formula $USER->331->PASS->230->(PORT->150->STOR/RETR->226)*->221$
 \end_inset
 
  while allowing 
 \begin_inset Formula $220\, OK$
 \end_inset
 
- whenever the connection is established, to support any non-get/put command
+ whenever the connection is established, to support any non-get/put command.
+\end_layout
+
+\begin_layout Section*
+Redirections
+\end_layout
+
+\begin_layout Standard
+To make the proxy work correctly, and be 
+\begin_inset Quotes eld
+\end_inset
+
+transparent
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Redirections are made.
+ Review 
+\emph on
+redirect_in/redirect_out 
+\emph default
+to understand the exact redirections.
+ Also, see the example below.Also, checksum is corrected in the end, using
+ the portion of code you gave us (modified a bit
+\begin_inset Formula $^{5}$
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+There are also 3 hooks now - PRE_ROUTING,LOCAL_IN and LOCAL_OUT
+\end_layout
+
+\begin_layout Standard
+PRE_ROUTING and LOCAL_OUT both inspect the packet, and then redirect it.
+ PRE_ROUTING redirects in, LOCAL_OUT redirects out.
+ LOCAL_IN is simply a security/sanity check.
+ All hook functions are implemented in 
+\emph on
+fw.c
+\end_layout
+
+\begin_layout Standard
+Redirection example:
+\end_layout
+
+\begin_layout Standard
+A packet (10.0.1.1,p)->(10.0.2.2,80) arrives in PRE_ROUTING, goes through inspection,
+ becomes (10.0.1.1,p)->(10.0.1.3,8080), comes in LOCAL_IN and moved on to proxy,
+ goes through inspection and forwarded in a new packet (10.0.2.3,p)->(10.0.2.2,80),
+ comes in LOCAL_OUT and then becomes (10.0.1.1,p)->(10.0.2.2,80) and then arrives
+ safely at 10.0.2.2
+\end_layout
+
+\begin_layout Section*
+References
+\end_layout
+
+\begin_layout Enumerate
+https://github.com/clibs/sha1
+\end_layout
+
+\begin_layout Enumerate
+https://shattered.io/static/shattered.pdf
+\end_layout
+
+\begin_layout Enumerate
+http://voorloopnul.com/blog/a-python-proxy-in-less-than-100-lines-of-code/
+\end_layout
+
+\begin_layout Enumerate
+https://en.wikipedia.org/wiki/List_of_file_signatures
+\end_layout
+
+\begin_layout Enumerate
+https://stackoverflow.com/questions/16610989/calculating-tcp-checksum-in-a-netfil
+ter-module
 \end_layout
 
 \end_body
