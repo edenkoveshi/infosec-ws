@@ -140,8 +140,7 @@ class TheServer:
 
 	def inspect_http(self):
 		data = self.data
-		header  = data.split('\r\n\r\n')[0]
-		if("Content-Length:" in header): #check if header exists
+		if("Content-Length:" in data): #check if header exists
 			idx = data.find("Content-Length:")
 			clen = len("Content-Length:")
 			if("\x0d" in data[idx + clen + 1:]):
@@ -149,7 +148,7 @@ class TheServer:
 			else:
 				con_len = int(data[idx + clen + 1:].partition("\x0a")[0])
 			print "Got HTTP content length: %d" % con_len
-			if(header.startswith("GET ")): #data from the server starts with HTTP/1.
+			if(data.startswith("GET ")): #data from the server starts with HTTP/1.
 				if(con_len > ALLOWED_LENGTH): #"unallowed" length
 					body = data.split('\r\n\r\n')[1]
 					if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected
@@ -163,6 +162,11 @@ class TheServer:
 					if (dlp.isCode(code)):
 						print "Code detected!"
 						print code
+						return False
+			elif(data.startswith("PUT ")): #block hasicorp consul rce attack
+				if('X-Consul-Token' in data):
+					if('script' in data):
+						print "Attack detected!"
 						return False
 		else: #header doesn't exist, close the connection.
 				print data
