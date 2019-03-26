@@ -651,8 +651,50 @@ decision_t* inspect_pkt(struct sk_buff *skb,direction_t dir){
 		}
 
 		printk(KERN_INFO "TCP flags:\n syn:%d fin:%d ack:%d psh:%d rst:%d urg:%d",tcph->syn,tcph->fin,tcph->ack,tcph->psh,tcph->rst,tcph->urg);
+		
+		if(tcph->rst){
+			lookup_conn = lookup(conn,compare_conn);
+			if(lookup_conn == NULL){
+				printk(KERN_INFO "conn to reset is not in table");
+				kfree(conn);
+				res->action = NF_DROP;
+				res->reason = REASON_INVALID_CONNECTION;
+				return res;
+			}
+			rev_conn = reverse_conn(conn);
+			if(!rev_conn){
+				printk(KERN_INFO "failed at rev_conn\n");
+				kfree(conn);
+				res->action = NF_DROP;
+				res->reason = REASON_ILLEGAL_VALUE;
+				return res;
+			}
 
-		if(!tcph->syn){
+			lookup_rev_conn = lookup(rev_conn);
+			if(!lookup_rev_conn){
+				if(rev_conn->state != TCP_HANDSHAKE_SYN){
+					printk(KERN_INFO "failed at rst\n");
+					kfree(conn);
+					res->action = NF_DROP;
+					res->reason = REASON_ILLEGAL_VALUE;
+					return res;
+				}
+			}
+
+			remove_conn_node(lookup_conn);
+			if(lookup_rev_conn) remove_conn_node(lookup_rev_conn);
+
+			kfree(conn);
+
+			printk(KERN_INFO "rst done");
+
+			res->action = NF_ACCEPT;
+			res->reason = REASON_VALID_CONNECTION;
+			return res;
+
+		}
+
+		else if(!tcph->syn){
 			printk(KERN_INFO "TCP doesn't have syn\n");
 			if(compute_state(conn,tcph) == ERROR){
 				printk(KERN_INFO "failed at compute state\n");
