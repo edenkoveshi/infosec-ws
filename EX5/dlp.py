@@ -4,10 +4,14 @@ import fnmatch
 import os
 import string
 
+C_REGEX = []
+
 def isCode(data):
 	data_avg_score,data_avg_line_length = get_data_score(data)
-	score = data_avg_score-data_avg_line_length/10
-	return score > 0
+	if(data_avg_score < 0): #almost no chance to enter this,but either way this is a text file
+		return False
+	score = (float)((data_avg_score + 1)/(data_avg_line_length + 1))
+	return score > 1
 	
 def get_data_score(data):
 	lines = data.split('\n')
@@ -19,49 +23,50 @@ def get_data_score(data):
 		lines_len_sum += len(line)
 		lines_score_sum += get_line_score(line)
 	
-	return float(lines_score_sum)/num_lines,float(lines_len_sum)/num_lines
+	return float(lines_score_sum)/num_lines,float(lines_len_sum)/num_lines 
 
 def get_line_score(line):
-	high_conf = ["#include ",".h>",".h\"","#if ","#endif","NULL","0x",'\{','\}','=','<','>','\+','#','\*',"stdlib","->"]
+	double_score_chars = ['{','}','=','<','>','+','#','*']
+	high_conf = ["#include ",".h>",".h\"","#if ","#endif","NULL","0x","->","malloc","stdlib"]
 	low_conf  = ["extern ","const ","struct ","static ","void ","if","else","return ","int ","char ","long ","double ","float ","case "]
-	regex = get_c_regex()
-	#regex = get_minimal_c_regex()
 	score = 0
-	for match in re.findall(r'[{}()#\\/*+\-=<>_;]{1}', line):
-		if match in high_conf:
-			score += 5
-		else:
-			score += 1
-	for exp in regex:
-		matches = re.findall(exp,line)
-		for match in matches:
-			score += 30	
-		for match in re.findall('|'.join(high_conf), line, flags=re.IGNORECASE): #join many high confidence words
-			if(match not in matches):
-				score += 15
-		for match in re.findall('|'.join(low_conf), line, flags=re.IGNORECASE): #join many low confidence words
-			if(match not in matches):
-				score += 3
-				
-		'''if line[-1:] == ';': #end of line is ; - typical to C code
-			score += 5
-		if line[-1:] == '.': #end of line is . - typical to text files
-			score -= 1
-		if line[0] in string.ascii_uppercase: #line begins with uppercase letter - typical to text files
-			score -= 1'''
-	
 
-	#score += len(re.findall(r'[0-9]+[,]{1}', line)) #comma seperated numbers	
+	for exp in C_REGEX:
+		matches = re.findall(exp,line)
+		r = re.findall(r'[{}()#\\/*+\-=<>_;]{1}', line)
+		for match in matches:
+			score += 30
+		for match in r:
+			if(match in double_score_chars and match not in matches):
+				score += 5
+			else:
+				score += 1
+		for match in re.findall('|'.join(high_conf), line, flags=re.IGNORECASE):
+				score += 20
+		for match in re.findall('|'.join(low_conf), line, flags=re.IGNORECASE):
+				score += 1
+
+	if(line[-1:] not in [';','{','}']): #c files are more likely to end with these
+		score -= 1
+				
 	return score
 	
-def getFileStats(filenames):
-	linesSum, lenAvgSum, specialAvgSum = 0,0,0
+def getFileStats(filenames,extension):
+	correct,total = 0,0
 	for filename in filenames:
-		print isCode((open(filename,'r').read()))
-		#print get_line_score(charsScoreAvg,lenAvg)
-		"""if (getDataStats(open(filename,'r').read()) > 0):
-			os.system('geany {}&'.format(filename))
-			print filename"""
+		total += 1
+		if(total % 50 == 0):
+			print "Still running.." #sanity check every 50 files
+		data = open(filename,'r').read()
+		is_code = isCode(data)
+		if(is_code and extension=="c"):
+			correct += 1
+		elif(not is_code and extension=="txt"):
+			correct += 1
+		'''else:
+			print data'''
+	success = ((float)(correct)/total)*100
+	print "{} correct out of {} total ({}%)".format(correct,total,success)
 
 def score_dir_files(path,extension):
 	matches = []
@@ -70,13 +75,15 @@ def score_dir_files(path,extension):
 			matches.append(os.path.join(root, filename))
 
 
-	getFileStats(matches)
+	getFileStats(matches,extension)
 
 
 def get_c_regex():
 	ID = re.compile(r"[a-z]+\w*")
 	NUMBER = re.compile(r"\-?([1-9]+[0-9]* | 0)")
-	TYPE = re.compile(r"int | double | char | struct %s"%(ID.pattern))
+	TYPE = re.compile(
+		r"int | double | char | struct %s | long | unsigned int | short | unsigned short | unsigned char | size_t"%(
+			ID.pattern))
 	PTR = re.compile(r"(%s)\* | void\*"%(TYPE.pattern))
 	VAR_TYPE = re.compile(r"(%s) | (%s)"%(TYPE.pattern,PTR.pattern))
 	VAR_DEC = re.compile(r"(%s) (%s) | (%s) \*(%s)"%(VAR_TYPE.pattern,ID.pattern,TYPE.pattern,ID.pattern))
@@ -131,9 +138,15 @@ def get_c_regex():
 	'''FOR = re.compile(r"for\((%s)? ; (%s) ; (%s)\)"%(
 		EXP.pattern,EXP.pattern,EXP.pattern))'''
 
+	COMMENT = re.compile(r"\/\/\w* | \/\*\w*\/\*")
+
 	return [ASSIGN_EXP,ASSIGN_VAR,ASSIGN_FUNC_WITH_PARAMS_RET_VAL,ASSIGN_FUNC_NO_PARAMS_RET_VAL,FUNC_INVOKE_STMT,RETURN,IF,\
-	WHILE,VAR_DEC_STMT,VAR_DEC_ASSIGN_STMT]
+	WHILE,VAR_DEC_STMT,VAR_DEC_ASSIGN_STMT,COMMENT]
 
 
-#if __name__ == '__main__':
-	#score_dir_files('/home/fw/github/infosec-ws','c')
+if __name__ == '__main__':
+	C_REGEX = get_c_regex()
+	score_dir_files('/','txt')
+	#380 correct out of 382 total (99.4764397906%) c files
+	#824 correct out of 985 total (83.654822335%) txt files
+	#825 correct out of 985 total (83.7563451777%)
