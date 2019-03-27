@@ -94,7 +94,7 @@ Before using the firewall, run the following command in linux bash,from
 \end_layout
 
 \begin_layout LyX-Code
-python ./module/interface/proxy.py
+python ./module/firewall/proxy.py
 \end_layout
 
 \begin_layout Part
