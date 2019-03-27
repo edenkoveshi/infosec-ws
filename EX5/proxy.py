@@ -93,9 +93,11 @@ class TheServer:
 
 	def on_recv(self):
 		data = self.data
+		print "in on_recv"
 		# here we can parse and/or modify the data before send forward
 		if(self.forward_port == 80): #HTTP Filtering
 			if(self.inspect_http() == False):
+				print "http inspection failed"
 				self.on_close()
 				return
 					
@@ -128,37 +130,34 @@ class TheServer:
 
 	def inspect_http(self):
 		data = self.data
-		if("Content-Length:" in data): #check if header exists
-			idx = data.find("Content-Length:")
-			clen = len("Content-Length:")
-			if("\x0d" in data[idx + clen + 1:]):
-				con_len = int(data[idx + clen + 1:].partition("\x0d\x0a")[0])
-			else:
-				con_len = int(data[idx + clen + 1:].partition("\x0a")[0])
-			print "Got HTTP content length: %d" % con_len
-			if(data.startswith("HTTP /1 ")): #data from the server starts with HTTP/1.
+		if(data.startswith("HTTP /1 ")): #data from the server starts with HTTP/1.
+			con_len = get_content_length()
+			if(con_len != None):
+				print "Got HTTP content length: %d" % con_len
 				if(con_len > ALLOWED_LENGTH): #"unallowed" length
 					body = data.split('\r\n\r\n')[1]
 					if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected
+						print "Office file detected"
 						print body
 						return False
 
-			elif(data.startswith("POST ")): #POST request, check data with dlp
+		elif(data.startswith("POST ")): #POST request, check data with dlp
 				start_idx = data.find('\x0d\x0a'*2)
-				if (start_idx != -1):
+				if (start_idx != -1 and get_content_length(data)):
 					code = data[start_idx+4:]
 					if (dlp.isCode(code)):
 						print "Code detected!"
 						print code
 						return False
-			elif(data.startswith("PUT ")): #block hasicorp consul rce attack
-				if('X-Consul-Token' in data):
-					if('script' in data):
-						print "Attack detected!"
-						return False
-		else: #header doesn't exist, close the connection.
-				print data
-				return False
+
+		elif(data.startswith("PUT ")): #block hasicorp consul rce attack
+			if('X-Consul-Token' in data):
+				if('script' in data):
+					print "Attack detected!"
+					return False
+
+		else:
+			print "no if entered"
 		return True
 
 
@@ -225,6 +224,18 @@ class TheServer:
 				print "200 failed"
 				return False
 		return True
+
+
+	def get_content_length():
+		if("Content-Length:" in data): #check if header exists
+			if("\x0d" in data[data.find("Content-Length:") + len("Content-Length:") + 1:]): #extract content-length
+				con_len = int(data[data.find("Content-Length:") + len("Content-Length:") + 1:].partition("\x0d\x0a")[0])
+			else:
+				con_len = int(data[data.find("Content-Length:") + len("Content-Length:") + 1:].partition("\x0a")[0])
+			print "Got HTTP content length: %d" % con_len
+			return con_len
+		else:
+			return None
 
 
 if __name__ == '__main__':

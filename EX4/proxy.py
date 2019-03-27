@@ -105,24 +105,16 @@ class TheServer:
 
 	def inspect_http(self):
 		data = self.data
-		if("Content-Length:" in data): #check if header exists
-			idx = data.find("Content-Length:")
-			clen = len("Content-Length:")
-			if("\x0d" in data[idx + clen + 1:]):
-				con_len = int(data[idx + clen + 1:].partition("\x0d\x0a")[0])
-			else:
-				con_len = int(data[idx + clen + 1:].partition("\x0a")[0])
-			print "Got HTTP content length: %d" % con_len
-			if(data.startswith("HTTP/1 ")): #data from the server starts with HTTP/1.
+		if(data.startswith("HTTP /1 ")): #data from the server starts with HTTP/1.
+			con_len = get_content_length()
+			if(con_len != None):
+				print "Got HTTP content length: %d" % con_len
 				if(con_len > ALLOWED_LENGTH): #"unallowed" length
 					body = data.split('\r\n\r\n')[1]
 					if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected
+						print "Office file detected"
 						print body
 						return False
-		else: #header doesn't exist, close the connection.
-			print "no content header"
-			print data
-			return False
 		return True
 
 
@@ -189,6 +181,18 @@ class TheServer:
 				print "200 failed"
 				return False
 		return True
+
+
+	def get_content_length():
+		if("Content-Length:" in data): #check if header exists
+			if("\x0d" in data[data.find("Content-Length:") + len("Content-Length:") + 1:]): #extract content-length
+				con_len = int(data[data.find("Content-Length:") + len("Content-Length:") + 1:].partition("\x0d\x0a")[0])
+			else:
+				con_len = int(data[data.find("Content-Length:") + len("Content-Length:") + 1:].partition("\x0a")[0])
+			print "Got HTTP content length: %d" % con_len
+			return con_len
+		else:
+			return None
 
 if __name__ == '__main__':
 		http_server = TheServer('0.0.0.0',HTTP_PORT,80)
