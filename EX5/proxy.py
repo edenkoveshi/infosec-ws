@@ -111,7 +111,6 @@ class TheServer:
 			if (self.__data_flag__ and data[0] not in string.digits):
 				self.__data_flag__ = False
 				code = data
-				print "Code: {}".format(code)
 				if("\x0d\x0a.\x0d\x0a" in data or data == ".\x0d\x0a"): # all in one packet or multiple packets for data and this is the last one
 					self.__data_flag__ = False
 				if (dlp.isCode(code)):
@@ -137,7 +136,7 @@ class TheServer:
 			else:
 				con_len = int(data[idx + clen + 1:].partition("\x0a")[0])
 			print "Got HTTP content length: %d" % con_len
-			if(data.startswith("GET ")): #data from the server starts with HTTP/1.
+			if(data.startswith("HTTP /1 ")): #data from the server starts with HTTP/1.
 				if(con_len > ALLOWED_LENGTH): #"unallowed" length
 					body = data.split('\r\n\r\n')[1]
 					if(body[MAGIC_OFFSET:MAGIC_OFFSET + len(MAGIC)] == MAGIC): #office file detected

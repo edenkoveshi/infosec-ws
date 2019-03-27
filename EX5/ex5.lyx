@@ -1,0 +1,405 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Information Security Workshop - Ex.
+ 5
+\end_layout
+
+\begin_layout Author
+Eden Koveshi 316221746
+\end_layout
+
+\begin_layout Standard
+This exercise intorduces two new components: 
+\emph on
+DLP
+\emph default
+, and defense against a chosen attack: RCE via Hashicorp Consul Scripting
+ Services.
+\end_layout
+
+\begin_layout Standard
+Before using the firewall, run the following command in linux bash,from
+ the working directory:
+\end_layout
+
+\begin_layout LyX-Code
+python ./module/interface/proxy.py
+\end_layout
+
+\begin_layout Part
+Data Loss Prevention (DLP)
+\end_layout
+
+\begin_layout Standard
+My DLP assigns the data a score, compares it to the average line length,
+ and accepts/rejects wrt.
+ some threshold
+\end_layout
+
+\begin_layout Standard
+The idea was inspired by TAU's Information Security course, and some reading
+ of McAfee DLP product documentation
+\begin_inset Formula $^{1}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section*
+The Algorithm
+\end_layout
+
+\begin_layout Standard
+The data is split into lines, and each line is given a score by the scoring
+ function.
+\end_layout
+
+\begin_layout Standard
+In the end, the data is classified code iff
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset Formula $\frac{avg.\, line\, score+1}{avg.\, line\, length+1}>threshold$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+The Scoring Function
+\end_layout
+
+\begin_layout Standard
+The scoring function attempts to find three kinds of patterns:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ Regular expressions pre-computed, describing the C language
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ Characters that have special meaning in C,repeat often in C, and not too
+ often in natural language.High confidence characters
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ Characters that have special meaning in C, repeat often in C but so in
+ natural language.
+ Those are low confidence characters.
+\end_layout
+
+\begin_layout Standard
+The more
+\begin_inset Quotes erd
+\end_inset
+
+confidence
+\begin_inset Quotes erd
+\end_inset
+
+ found in line, the higher the score it gets.
+\end_layout
+
+\begin_layout Standard
+The score is given wrt.
+ the line length, so it then can be compared.
+\end_layout
+
+\begin_layout Section*
+Why RegEx?
+\end_layout
+
+\begin_layout Standard
+Regular expressions are the most basic lexical/semantic primitives, used
+ in every compiler.
+ They are fast and give quite a good indication.
+\end_layout
+
+\begin_layout Standard
+Though they can't identify a language completely, they are an integral part
+ of a programming lanuage.Thus, C file will probably contain many matches,
+ while a text file won't, and thus they are a good indicator.
+\end_layout
+
+\begin_layout Standard
+The advantage of using regular expressions over identifying symbols, is
+ that regular expressions capture (at least partially) the structure of
+ C language, and help differentiate random use of keywords from a real use
+ of keywords.
+\end_layout
+
+\begin_layout Standard
+The advantage of using regular expression over other solutions such as CFG
+ parser, or ML techniques is that they require heavy, time-consuming computation
+s which a firewall can't afford to have, while regular expressions are easy
+ to work with (and computed only once).
+\end_layout
+
+\begin_layout Standard
+Thus, regular expressions is a good solution that satisfies both accuracy
+ and perforemence.
+\end_layout
+
+\begin_layout Standard
+Ideas for some of the expressions were taken from C language CFG.
+\begin_inset Formula $^{2}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+An interseting/useful fact: 
+\series default
+Regular expressions define structure.Using regular expressions lets us identify
+ more C-based languages, such as C++,C# or Java (with less accuracy of course)
+ due to their structure.This idea can be extended to support any other programmin
+g/scripting language.
+\end_layout
+
+\begin_layout Section*
+Parameter Tuning
+\end_layout
+
+\begin_layout Standard
+Using many random C and text files to tune the parameters, the final parameters
+ are:
+\end_layout
+
+\begin_layout LyX-Code
+reg exp match score:
+\end_layout
+
+\begin_layout LyX-Code
+high conf match score:
+\end_layout
+
+\begin_layout LyX-Code
+low conf match score:
+\end_layout
+
+\begin_layout LyX-Code
+threshold:
+\end_layout
+
+\begin_layout Section*
+POC
+\end_layout
+
+\begin_layout Standard
+Running this on every c/txt file in my machine's root directory, the results
+ are:
+\end_layout
+
+\begin_layout Section*
+Integrating DLP within the proxy server
+\end_layout
+
+\begin_layout Standard
+The DLP is used within the proxy server introduced in last exercise, in
+ two ways:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ HTTP POST request, simply check header to recognize POST reuqest, and send
+ the data to the DLP
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ SMTP DATA request.When recieving a packet on port 25, the proxy sever checks
+ whether it is a DATA packet or not, and if it is, sends the data over to
+ the DLP.
+\end_layout
+
+\begin_layout Standard
+To support SMTP, the appropriate redirections were added in 
+\emph on
+redirect_in,redirect_out 
+\emph default
+functions introduced in last exercise, and a new socket listening on port
+ 2025 with forward port 25 added to the proxy server.
+\end_layout
+
+\begin_layout Part
+Defense Against Chosen Attack: RCE via Hashicorp Consul Services API
+\end_layout
+
+\begin_layout Section*
+Introduction
+\end_layout
+
+\begin_layout Standard
+Consul is a service mesh soultion by Hashicorp.
+\end_layout
+
+\begin_layout Standard
+One of the things Consul offers is the Services API - the ability to run
+ services, potentially from scripts, on the machine to make tests.
+ Sounds crazy already.
+\end_layout
+
+\begin_layout Standard
+This was originally intended for local use only, and Consul customers have
+ been warned for years.
+ 
+\end_layout
+
+\begin_layout Standard
+When many of their customers did not take their advise and enabled remote
+ access to the service, they have been suffering from RCE attacks.
+\end_layout
+
+\begin_layout Standard
+To get the attack to work, one needs:
+\end_layout
+
+\begin_layout Standard
+1.
+ A flaw in the whitelisting of scripts, which is not hard to find at probably
+ most organizations
+\end_layout
+
+\begin_layout Standard
+2.
+ ACL disabled or compromised
+\end_layout
+
+\begin_layout Section*
+Attack Prevention
+\end_layout
+
+\begin_layout Standard
+To prevent this, Hashicorp released new configuration flags, which allow
+ script files to be registered only by local machine.
+\end_layout
+
+\begin_layout Section*
+My Firewall Solution
+\end_layout
+
+\begin_layout Standard
+As I don't have a Consul server, nor an ACL token, I cannot verify that
+ the server is compromised.
+\end_layout
+
+\begin_layout Standard
+If it's not, then blocking isn't needed.
+\end_layout
+
+\begin_layout Standard
+However, if it's not compromised, then scripts can be run only locally either
+ way.
+\end_layout
+
+\begin_layout Standard
+Thus, my solution is simply blocking packets with a register request (can
+ be found in the Metasploit attack source code
+\begin_inset Formula $^{3}$
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Standard
+So any request coming from outside network will be blocked, and local requests
+ won't pass through the firewall so they'll pass, and the solution is efficientl
+y the same as Hashicorp's solution.
+\end_layout
+
+\begin_layout Section*
+References
+\end_layout
+
+\begin_layout Enumerate
+https://docs.mcafee.com/bundle/data-loss-prevention-11.0.400-product-guide-epolicy-o
+rchestrator/page/GUID-F54FD4EF-E613-4ADB-8109-46A96BDFE4FC.html
+\end_layout
+
+\begin_layout Enumerate
+https://www.cs.dartmouth.edu/~mckeeman/cs118/xcom/doc/Ccfg.html
+\end_layout
+
+\begin_layout Enumerate
+https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/multi
+/misc/consul_service_exec.rb
+\end_layout
+
+\end_body
+\end_document
