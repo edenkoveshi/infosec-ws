@@ -3,6 +3,7 @@ import re
 import fnmatch
 import os
 import string
+import time
 
 C_REGEX = []
 
@@ -11,8 +12,6 @@ def isCode(data):
 	if(lines_score_sum < 0): #almost no chance to enter this,but either way this is a text file
 		return False
 	score = (lines_score_sum + 1)/(lines_len_sum + 1)
-	'''if score > 30:
-		print data'''
 	return score > 1.4
 	
 def get_data_score(data):
@@ -28,7 +27,7 @@ def get_data_score(data):
 	return lines_score_sum,lines_len_sum
 
 def get_line_score(line):
-	#double_score_chars = ['{','}','=','<','>','+','#','*']
+	symbols = ['{','}','=','<','>','+','#','*']
 	high_conf = ["#include ",".h>",".h\"","#if ","#endif","NULL","0x","->","malloc","stdlib"]
 	low_conf  = ["extern ","const ","static ","case "]
 	score = 0
@@ -39,47 +38,50 @@ def get_line_score(line):
 			matches = re.findall(exp,line)
 			r = re.findall(r'[{}()#\\/*+\-=<>_;]{1}', line)
 			for match in matches:
-				score += 5.2*line_len
+				score += 6*line_len
 				#print "found regexp %s"%match
-			''''for match in r:
-				if(match in double_score_chars):
-					score += 0.1*line_len
+			for match in r:
+				if(match in symbols):
+					score += 0.015*line_len
 				else:
-					score += 0.05*line_len'''
+					score += 0.007*line_len
 			for match in re.findall('|'.join(high_conf), line, flags=re.IGNORECASE):
 				if match not in matches:
-					score += 1.6*line_len
+					score += 1.4*line_len
 			for match in re.findall('|'.join(low_conf), line, flags=re.IGNORECASE):
 				if match not in matches:
 					score += 0.3*line_len
 
 		if(line[0] == '{' or line[0] == '}'):
-			score += 1.4*line_len
+			score += 1.8*line_len
 
 		if(line[-1:] == '{' or line[-1:] == '}'):
-			score += 1.4*line_len
+			score += 1.8*line_len
 
 		if(line[-1:] == '.'): #text files are more likely to end with this
-			score -= 0.9*line_len
+			score -= 2.1*line_len
 				
 	return score
 	
 def getFileStats(filenames,extension):
-	correct,total = 0,0
+	correct,total,avg_time = 0,0,0
 	for filename in filenames:
 		total += 1
 		if(total % 50 == 0):
 			print "Still running.." #sanity check every 50 files
 		data = open(filename,'r').read()
+		start = time.time()
 		is_code = isCode(data)
+		end = time.time()
 		if(is_code and extension=="c"):
 			correct += 1
 		elif(not is_code and extension=="txt"):
 			correct += 1
-		'''else:
-			print data'''
+		avg_time += (end - start)
 	success = ((float)(correct)/total)*100
+	avg_time = avg_time/total
 	print "{} correct out of {} total ({}%)".format(correct,total,success)
+	print "average inspection time is {} seconds".format(avg_time)
 
 def score_dir_files(path,extension):
 	matches = []
@@ -165,9 +167,11 @@ def get_c_regex():
 	WHILE,VAR_DEC_STMT,VAR_DEC_ASSIGN_STMT,COMMENT,FUNC_DEF_STMT,ASSIGN_INC_DEC,ASSIGN_CAST,GOTO]
 
 
-if __name__ == '__main__':
+def init():
 	C_REGEX = get_c_regex()
-	score_dir_files('/','c')
-	#380 correct out of 382 total (99.4764397906%) c files
-	#824 correct out of 985 total (83.654822335%) txt files
-	#825 correct out of 985 total (83.7563451777%)
+
+
+'''if __name__ == '__main__':
+	init()
+	score_dir_files('/','txt')
+	score_dir_files('/','c')'''

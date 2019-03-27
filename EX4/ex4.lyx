@@ -217,7 +217,12 @@ strong
 \begin_inset Quotes erd
 \end_inset
 
- security, and used widely in many cryptographic systems.
+ security, and used widely in many cryptographic systems, and the best known
+ attack on it requires 
+\begin_inset Formula $O(2^{69})$
+\end_inset
+
+ computations.
 \end_layout
 
 \begin_layout Verse

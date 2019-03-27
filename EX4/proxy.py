@@ -128,10 +128,11 @@ class TheServer:
 
 	def inspect_ftp(self):
 		data = self.data
-		print data
+		#print data
 		if(data.startswith("USER ")): #beginning
 			if(self.ftp_state != "FTP_NONE"):
 				print "USER failed"
+				self.ftp_state = "FTP_NONE"
 				return False
 			else:
 				self.ftp_state = "FTP_USER_SENT"
@@ -139,37 +140,43 @@ class TheServer:
 			if(self.ftp_state == "FTP_USER_SENT"):
 				self.ftp_state = "FTP_USER_OK"
 			else:
+				self.ftp_state = "FTP_NONE"
 				print "331 failed"
 				return False
 		elif(data.startswith("PASS ")): #password sent
 			if(self.ftp_state == "FTP_USER_OK"):
 				self.ftp_state = "FTP_PASSWORD_SENT"
 			else:
+				self.ftp_state = "FTP_NONE"
 				print "PASS failed"
 				return False
 		elif(data.startswith("230 ")): #authorized
 			if(self.ftp_state == "FTP_PASSWORD_SENT"):
 				self.ftp_state = "FTP_CONN_ESTABLISHED"
 			else:
+				self.ftp_state = "FTP_NONE"
 				print "230 failed"
 				return False
 		elif(data.startswith("PORT ")):
 			if(self.ftp_state == "FTP_CONN_ESTABLISHED"):
 				self.ftp_state = "FTP_PORT_SENT"
 			else:
+				self.ftp_state = "FTP_NONE"
 				print "self.ftp_state = %s" %self.ftp_state
 				print "PORT failed"
 				return False
 		elif(data.startswith("150 ") or data.startswith("STOR") or data.startswith("RETR")): #opening port for transfer
 			if(self.ftp_state != "FTP_FILE_TRANSFER"):
 				print "Data transfer failed"
+				self.ftp_state = "FTP_NONE"
 				return False
-			elif(data.find("226") != -1): 
+			elif('226' in data): 
 				self.ftp_state = "FTP_CONN_ESTABLISHED"
 		elif(data.startswith("226")): #transfer done
 			if(self.ftp_state == "FTP_FILE_TRANSFER"):
 				self.ftp_state = "FTP_CONN_ESTABLISHED"
 			else:
+				self.ftp_state = "FTP_NONE"
 				print "226 failed"
 				return False
 		elif(data.startswith("221 ")): #communcation ended
@@ -178,6 +185,7 @@ class TheServer:
 			if(self.ftp_state == "FTP_PORT_SENT"):
 				self.ftp_state = "FTP_FILE_TRANSFER"
 			elif(self.ftp_state != "FTP_CONN_ESTABLISHED" and self.ftp_state != "FTP_NONE"):
+				self.ftp_state = "FTP_NONE"
 				print "200 failed"
 				return False
 		return True

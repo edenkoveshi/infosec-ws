@@ -158,6 +158,37 @@ The scoring function attempts to find three kinds of patterns:
 \end_layout
 
 \begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ Common punctuation symbols that may appear in both C and text, also divided
+ to high and low confidence.
+ Those gain a very very small score.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ Lines that start or end with 
+\begin_inset Formula $\{,\}$
+\end_inset
+
+ gain extra score 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\bullet$
+\end_inset
+
+ Lines that end with 
+\begin_inset Formula $.$
+\end_inset
+
+ lose score
+\end_layout
+
+\begin_layout Standard
 The more
 \begin_inset Quotes erd
 \end_inset
@@ -179,8 +210,8 @@ Why RegEx?
 \end_layout
 
 \begin_layout Standard
-Regular expressions are the most basic lexical/semantic primitives, used
- in every compiler.
+Regular expressions are the most basic building blocks of programming languags,
+ used in every compiler.
  They are fast and give quite a good indication.
 \end_layout
 
@@ -199,9 +230,9 @@ The advantage of using regular expressions over identifying symbols, is
 
 \begin_layout Standard
 The advantage of using regular expression over other solutions such as CFG
- parser, or ML techniques is that they require heavy, time-consuming computation
-s which a firewall can't afford to have, while regular expressions are easy
- to work with (and computed only once).
+ parser, or ML classifying techniques is that they require heavy, time-consuming
+ computations which a firewall can't afford to have, while regular expressions
+ are easy to work with,and computed only once.
 \end_layout
 
 \begin_layout Standard
@@ -234,23 +265,44 @@ Parameter Tuning
 
 \begin_layout Standard
 Using many random C and text files to tune the parameters, the final parameters
- are:
+ are (l is the current line length):
 \end_layout
 
 \begin_layout LyX-Code
-reg exp match score:
+reg exp match score: 6l
 \end_layout
 
 \begin_layout LyX-Code
-high conf match score:
+high conf match score: 1.4l
 \end_layout
 
 \begin_layout LyX-Code
-low conf match score:
+low conf match score: 0.3l
 \end_layout
 
 \begin_layout LyX-Code
-threshold:
+high conf symbol score: 0.015l
+\end_layout
+
+\begin_layout LyX-Code
+low conf symbol score: 0.007l
+\end_layout
+
+\begin_layout LyX-Code
+score for lines that start or end with 
+\begin_inset Formula $\{,\}$
+\end_inset
+
+: 1.8l
+\end_layout
+
+\begin_layout LyX-Code
+score for lines that end with .
+ : -2.1l
+\end_layout
+
+\begin_layout LyX-Code
+threshold: 1.4
 \end_layout
 
 \begin_layout Section*
@@ -260,6 +312,34 @@ POC
 \begin_layout Standard
 Running this on every c/txt file in my machine's root directory, the results
  are:
+\begin_inset Newline newline
+\end_inset
+
+C code:
+\end_layout
+
+\begin_layout LyX-Code
+373 correct out of 382 total (97.6439790576%) 
+\end_layout
+
+\begin_layout LyX-Code
+average inspection time is 0.91472581419 seconds
+\end_layout
+
+\begin_layout Standard
+Text:
+\end_layout
+
+\begin_layout LyX-Code
+886 correct out of 1005 total (88.1592039801%) 
+\end_layout
+
+\begin_layout LyX-Code
+average inspection time is 0.812968847408 seconds
+\end_layout
+
+\begin_layout Standard
+of course text false positives are much less scarying :)
 \end_layout
 
 \begin_layout Section*
